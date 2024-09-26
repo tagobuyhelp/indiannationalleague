@@ -1,0 +1,41 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "INL",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "inl"
+  },
+  "keywords": [
+    "inl"
+  ],
+  "author": "Tarik Aziz",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "base-64": "^1.0.0",
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "6.8",
+    "mongoose": "^8.5.0",
+    "mongoose-aggregate-paginate-v2": "^1.1.1",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.14",
+    "nodemon": "^3.1.4",
+    "prettier": "^3.3.2",
+    "razorpay": "^2.9.4",
+    "sha256": "^0.2.0"
+  }
+}
