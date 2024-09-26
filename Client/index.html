@@ -129,9 +129,9 @@
                 .then(data => {
                     console.log('Payment initiation response:', data);
                     // Handle the response data here (e.g., redirect to the payment URL)
-                    if (data.success) {
+                    if (data.success === true) {
                         // Redirect the user or display a success message
-                        window.location.href = data.redirectUrl; // Example of redirection
+                        window.location.href = data.paymentUrl; // Example of redirection
                     } else {
                         // Handle failure case
                         console.error('Payment initiation failed:', data.message);

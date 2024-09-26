@@ -4,6 +4,7 @@ import { Transaction } from '../models/transaction.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { Donation } from '../models/donation.model.js';
+import crypto from 'crypto';
 
 
 const phonepePayment = async function (merchantTransactionId, userId, amount, phoneNumber) {
@@ -11,34 +12,36 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
     const saltKey = process.env.SALT_KEY;
     const saltIndex = 1;
 
-    const payEndpoint = process.env.PHONEPE_PAY_ENDPOINT; // Corrected typo
+    const payEndpoint = process.env.PHONEPE_PAY_ENDPOINT;
     const phonepeHostUrl = process.env.PHONEPE_HOST_URL;
-    
+
+    const redirectUrl = process.env.REDIRECT_URL
 
     // Prepare payload
     const payload = {
-        "merchantId": merchantId,
-        "merchantTransactionId": merchantTransactionId,
-        "merchantUserId": userId,
-        "amount": amount * 100,
-        "redirectUrl": `http://localhost:${process.env.PORT}/redirect-url/${merchantTransactionId}`,
-        "redirectMode": "REDIRECT",
-        "mobileNumber": phoneNumber,
-        "paymentInstrument": {
+        merchantId: merchantId,
+        merchantTransactionId: merchantTransactionId,
+        merchantUserId: userId,
+        amount: amount * 100,
+        redirectUrl: `${redirectUrl}?id${merchantTransactionId}`,
+        redirectMode: "POST",
+        mobileNumber: phoneNumber,
+        paymentInstrument: {
             "type": "PAY_PAGE"
         }
     };
 
-    const bufferObj = Buffer.from(JSON.stringify(payload), "utf8");
-    const base64EncodedPayload = bufferObj.toString("base64");
+    const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
+    const string = base64Payload + '/pg/v1/pay' + saltKey 
+    const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+    const xVerify = sha256 + '###' + saltIndex
 
-    // Calculate xVerify
-    const xVerify = sha256(base64EncodedPayload + payEndpoint + saltKey) + "###" + saltIndex;
+
 
     // Axios request options
     const options = {
         method: 'POST',
-        url: `${phonepeHostUrl}${payEndpoint}`,
+        url: phonepeHostUrl,
         headers: {
             Accept: 'application/json', 
             'Content-Type': 'application/json',
@@ -46,13 +49,14 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
         },
         
         data: {
-            request: base64EncodedPayload,
+            request: base64Payload,
         }
     };
 
     // Send the request to PhonePe API
     try {
         const response = await axios.request(options);
+        console.log(response.data.data.instrumentResponse.redirectInfo.url);
         const url = response.data.data.instrumentResponse.redirectInfo.url
         return url
     } catch (error) {

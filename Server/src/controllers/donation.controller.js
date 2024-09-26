@@ -46,15 +46,11 @@ const handleDonationRequest = asyncHandler(async (req, res) => {
         donorPhone
     );
 
-    if (phonepeResponse.success) {
-        // Update transaction with PhonePe payment URL
-        transaction.paymentUrl = phonepeResponse.url;
-        await transaction.save();
-
+    if (phonepeResponse) {
         // Send the payment URL to the frontend
         res.status(200).json({
             success: true,
-            paymentUrl: phonepeResponse.url
+            paymentUrl: phonepeResponse
         });
     } else {
         // Handle payment initiation failure

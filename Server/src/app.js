@@ -13,7 +13,7 @@ const app = express();
 
 
 // Define allowed origins
-const allowedOrigins = ['http://157.173.216.224', 'http://127.0.0.1:5500'];
+const allowedOrigins = ['http://157.173.216.224', 'http://127.0.0.1:5500', 'https://secure.indiannationalleague.party'];
 
 // CORS configuration
 const corsOptions = {
