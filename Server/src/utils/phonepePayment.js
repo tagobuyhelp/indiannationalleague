@@ -112,13 +112,13 @@ const status = asyncHandler(async (req, res) => {
                 donation.paymentStatus = "completed";
                 await transaction.save();
 
-                return res.send(successUrl)
+                return res.redirect(successUrl)
             } else {
                 throw new ApiError(404, 'Transaction not found');
             }
         } else {
             // Handle other statuses like failure or pending
-            return res.send(failurUrl);
+            return res.redirect(failurUrl)
         }
     } catch (error) {
         console.error(error);
