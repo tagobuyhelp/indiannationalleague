@@ -56,7 +56,6 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
     // Send the request to PhonePe API
     try {
         const response = await axios.request(options);
-        console.log(response.data.data.instrumentResponse.redirectInfo.url);
         const url = response.data.data.instrumentResponse.redirectInfo.url
         return url
     } catch (error) {
@@ -113,13 +112,13 @@ const status = asyncHandler(async (req, res) => {
                 donation.paymentStatus = "completed";
                 await transaction.save();
 
-                return res.redirect(successUrl)
+                return res.send(successUrl)
             } else {
                 throw new ApiError(404, 'Transaction not found');
             }
         } else {
             // Handle other statuses like failure or pending
-            return res.redirect(failurUrl);
+            return res.send(failurUrl);
         }
     } catch (error) {
         console.error(error);

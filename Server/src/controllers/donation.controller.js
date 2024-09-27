@@ -2,7 +2,7 @@ import { Donation } from '../models/donation.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
 import { phonepePayment } from '../utils/phonepePayment.js';
-import { generateUserId } from '../utils/generateId.js';
+import { generateUserId, generateTnxId } from '../utils/generateId.js';
 import { Transaction } from '../models/transaction.model.js';
 
 const handleDonationRequest = asyncHandler(async (req, res) => {
@@ -18,10 +18,13 @@ const handleDonationRequest = asyncHandler(async (req, res) => {
     // Create a Transaction record
     const transaction = await Transaction.create({
         memberId: userId,
+        transactionId: generateTnxId(),
         transactionType: 'donation',
         amount: amount,
         paymentStatus: 'pending'
     });
+
+    console.log(transaction.transactionId);
 
 
     // Create the donation record
