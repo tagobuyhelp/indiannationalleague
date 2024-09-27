@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { generateTnxId } from "../utils/generateId.js";
+
 
 const transactionSchema = new mongoose.Schema({
     memberId: {
@@ -7,7 +7,6 @@ const transactionSchema = new mongoose.Schema({
     },
     transactionId: {
         type: String,
-        default: generateTnxId(),
         required: true,
     },
     transactionType: {
