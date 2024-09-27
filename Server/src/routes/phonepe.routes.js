@@ -2,14 +2,15 @@ import { Router } from 'express';
 
 
 import {
-    redirectUrl,
+    status,
 } from '../utils/phonepePayment.js';
 
 
 const router = Router();
 
 
-router.route('/redirect-url:merchantTransactionId').get(redirectUrl);
+router.route('/status/:merchantTransactionId').post(status);
+
 
 
 

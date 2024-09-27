@@ -23,7 +23,7 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
         merchantTransactionId: merchantTransactionId,
         merchantUserId: userId,
         amount: amount * 100,
-        redirectUrl: `${redirectUrl}?id${merchantTransactionId}`,
+        redirectUrl: `${redirectUrl}/${merchantTransactionId}`,
         redirectMode: "POST",
         mobileNumber: phoneNumber,
         paymentInstrument: {
@@ -66,25 +66,32 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
 
 
 
-const redirectUrl = asyncHandler(async (req, res) => {
-    const { merchantTransactionId } = req.params;
+const status = asyncHandler(async (req, res) => {
+    const merchantTransactionId = req.params.merchantTransactionId;
 
     if (!merchantTransactionId) {
         throw new ApiError(400, 'Merchant Transaction Id is required');
     }
 
-    console.log('Merchant Transaction Id:', merchantTransactionId);
+    const MERCHANT_ID = process.env.MERCHANT_ID
+    const successUrl = "https://indiannationalleague.party/success";
+    const failurUrl = "https://indiannationalleague.party/fail"
 
     // Calculate xVerify
-    const xVerify = sha256(`/pg/v1/status/${process.env.MERCHANT_ID}/${merchantTransactionId}` + process.env.SALT_KEY) + "###" + process.env.SALT_INDEX;
+
+    const string = `/pg/v1/status/${process.env.MERCHANT_ID}/${merchantTransactionId}` + process.env.SALT_KEY
+    const sha256 = crypto.createHash('sha256').update(string).digest('hex');
+    const checksum = sha256 + '###' + process.env.SALT_INDEX
+
 
     const options = {
-        method: 'get',
-        url: `${process.env.PHONEPE_HOST_URL}/pg/v1/status/${process.env.MERCHANT_ID}/${merchantTransactionId}`,
+        method: 'GET',
+        url: `${process.env.PHONEPE_STATUS_URL}/${process.env.MERCHANT_ID}/${merchantTransactionId}`,
         headers: {
             accept: "application/json",
             "Content-Type": "application/json",
-            "X-VERIFY": xVerify,
+            "X-VERIFY": checksum,
+            'X-MERCHANT-ID': MERCHANT_ID
         },
     };
 
@@ -93,7 +100,7 @@ const redirectUrl = asyncHandler(async (req, res) => {
         const response = await axios.request(options);
 
         // Check payment status from PhonePe response
-        if (response.data.code === 'PAYMENT_SUCCESS') {
+        if (response.data.success === true) {
             // Find the corresponding transaction
             const transaction = await Transaction.findOne({ transactionId: merchantTransactionId });
             const donation = await Donation.findOne({transactionId: transaction.transactionId})
@@ -106,21 +113,13 @@ const redirectUrl = asyncHandler(async (req, res) => {
                 donation.paymentStatus = "completed";
                 await transaction.save();
 
-                res.status(200).json({
-                    success: true,
-                    message: 'Donation successful and transaction updated',
-                    data: response.data,
-                });
+                return res.redirect(successUrl)
             } else {
                 throw new ApiError(404, 'Transaction not found');
             }
         } else {
             // Handle other statuses like failure or pending
-            res.status(200).json({
-                success: false,
-                message: 'Payment not successful',
-                data: response.data,
-            });
+            return res.redirect(failurUrl);
         }
     } catch (error) {
         console.error(error);
@@ -136,5 +135,5 @@ const redirectUrl = asyncHandler(async (req, res) => {
 
 export { 
     phonepePayment, 
-    redirectUrl
+    status
 };
