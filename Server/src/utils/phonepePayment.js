@@ -105,18 +105,35 @@ const status = asyncHandler(async (req, res) => {
             const donation = await Donation.findOne({transactionId: transaction.transactionId})
 
             if (transaction && donation) {
-                // Update payment status to "completed"
+                console.log('Transaction found.. & Updataing started..');
                 transaction.paymentStatus = "completed";
                 await transaction.save();
-
+            
                 donation.paymentStatus = "completed";
-                await transaction.save();
+                await donation.save();
 
-                return res.redirect(successUrl)
+                console.log('Transaction saved.. & Updataing completed..');
+            
+                return res.redirect(successUrl);
             } else {
                 throw new ApiError(404, 'Transaction not found');
             }
         } else {
+            // Find the corresponding transaction
+            const transaction = await Transaction.findOne({ transactionId: merchantTransactionId });
+            const donation = await Donation.findOne({transactionId: transaction.transactionId})
+
+            if (transaction && donation) {
+                console.log('Transaction found.. & Updataing started..');
+                transaction.paymentStatus = "failed";
+                await transaction.save();
+            
+                donation.paymentStatus = "failed";
+                await donation.save();
+
+                console.log('Transaction saved.. & Updataing completed..');
+            
+            }
             // Handle other statuses like failure or pending
             return res.redirect(failurUrl)
         }
