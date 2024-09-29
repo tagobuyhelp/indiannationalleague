@@ -4,9 +4,10 @@ import { ApiError } from '../utils/apiError.js';
 import { phonepePayment } from '../utils/phonepePayment.js';
 import { generateUserId, generateTnxId } from '../utils/generateId.js';
 import { Transaction } from '../models/transaction.model.js';
+import { sendMail } from '../utils/sendMail.js';
 
 const handleDonationRequest = asyncHandler(async (req, res) => {
-    const { donorName, donorEmail, donorPhone, amount,purpose, isAnonymous } = req.body;
+    const { donorName, donorEmail, donorPhone, amount, purpose, isAnonymous } = req.body;
 
     if (!donorName || !amount) {
         throw new ApiError(400, 'Donor name or amount must be provided!');
@@ -26,7 +27,6 @@ const handleDonationRequest = asyncHandler(async (req, res) => {
 
     console.log(transaction.transactionId);
 
-
     // Create the donation record
     const donation = await Donation.create({
         donorName: donorName,
@@ -40,16 +40,52 @@ const handleDonationRequest = asyncHandler(async (req, res) => {
     });
 
     const merchantTnxId = transaction.transactionId;
+    const redirectUrl = process.env.REDIRECT_URL;
 
     // Initiate payment with PhonePe
     const phonepeResponse = await phonepePayment(
         merchantTnxId,
         userId,
         amount,
-        donorPhone
+        donorPhone,
+        redirectUrl
     );
 
     if (phonepeResponse) {
+        // Prepare email content
+        const emailContent = `
+            <p>Dear ${donorName},</p>
+            <p>Your payment process for the donation has been initiated successfully.</p>
+            <p>Amount: ₹${amount}</p>
+            <p>Transaction ID: ${merchantTnxId}</p>
+            <p>Please complete the payment using the link below:</p>
+            <a href="${phonepeResponse}" style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #4CAF50; color: white; text-align: center; text-decoration: none; border-radius: 5px;">Complete Payment</a>
+            <p>Thank you!</p>
+            
+            <hr style="margin: 20px 0; border: 1px solid #ccc;">
+            
+            <p><strong>Address</strong></p>
+            <p>
+                INDIAN NATIONAL LEAGUE<br>
+                Registered Address: 7 B. R. Mehta Lane, Kasturba Gandhi Marg Cross,<br>
+                New Delhi Central Delhi DELHI 110001<br>
+                Operational Address: 7 B. R. Mehta Lane, Kasturba Gandhi Marg Cross,<br>
+                New Delhi Central Delhi DELHI 110001
+            </p>
+
+            <p><strong>Contact Information</strong><br>
+                Telephone No: 9532835303<br>
+                E-Mail ID: info@indiannationalleague.party
+            </p>
+        `;
+
+        // Send confirmation email to the donor using the sendMail utility
+        await sendMail({
+            to: donorEmail,
+            subject: 'Donation Payment Initiation',
+            html: emailContent,
+        });
+
         // Send the payment URL to the frontend
         res.status(200).json({
             success: true,

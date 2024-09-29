@@ -1,13 +1,13 @@
 const generateTnxId = () => {
     const randomNum = Math.floor(1000000000000000 + Math.random() * 9000000000000000);
     
-    return `MT${randomNum}`
+    return `TX${randomNum}`
 }
 
 const generateUserId = () => {
-    const randomNum = Math.floor(100 + Math.random() * 900);
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
     
-    return `MUID${randomNum}`
+    return `INLID${randomNum}`
 }
 
 

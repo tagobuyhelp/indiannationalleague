@@ -11,6 +11,11 @@ const memberSchema = new Schema({
         required: true,
         trim: true,
     },
+    email: {
+        type: String,
+        required: true,
+        trim: true,
+    },
     membershipStatus: {
         type: String,
         required: true,

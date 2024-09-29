@@ -33,12 +33,14 @@ app.get('/', (req, res) => {
 import userRouter from './routes/user.routes.js';
 import donationRouter from './routes/donation.routes.js';
 import phonepeRoutes from './routes/phonepe.routes.js';
+import membershipRoutes from './routes/membership.routes.js';
 
 
 //route diclaration
 app.use("/user", userRouter);
 app.use(donationRouter);
 app.use(phonepeRoutes);
+app.use(membershipRoutes);
 
 
 

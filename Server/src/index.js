@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import connectDB from './database/mongoConnection.js';
 import { app } from './app.js';
+import transporter from './mail/mail.connect.js';
 
 
 

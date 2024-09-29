@@ -1,17 +1,22 @@
 import mongoose, { Schema } from "mongoose";
 
-
 const transactionSchema = new mongoose.Schema({
     memberId: {
         type: String,
+        required: true,
+        trim: true,
+        index: true
     },
     transactionId: {
         type: String,
         required: true,
+        unique: true,
+        index: true,
+        trim: true
     },
     transactionType: {
         type: String,
-        enum: ['donation', 'membershipFees'], 
+        enum: ['donation', 'membershipFees'],
         required: true,
     },
     paymentStatus: {
@@ -22,12 +27,8 @@ const transactionSchema = new mongoose.Schema({
     amount: {
         type: Number,
         required: true,
+        min: 0,
     }
+}, { timestamps: true });
 
-}, {timestamps: true});
-
-
-
-
-
-export const Transaction = mongoose.model('Transaction',transactionSchema);
+export const Transaction = mongoose.model('Transaction', transactionSchema);

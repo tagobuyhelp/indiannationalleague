@@ -5,9 +5,10 @@ import { ApiError } from '../utils/apiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { Donation } from '../models/donation.model.js';
 import crypto from 'crypto';
+import { sendMail } from '../utils/sendMail.js';
 
 
-const phonepePayment = async function (merchantTransactionId, userId, amount, phoneNumber) {
+const phonepePayment = async function (merchantTransactionId, userId, amount, phoneNumber, redirectUrl) {
     const merchantId = process.env.MERCHANT_ID;
     const saltKey = process.env.SALT_KEY;
     const saltIndex = 1;
@@ -15,7 +16,8 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
     const payEndpoint = process.env.PHONEPE_PAY_ENDPOINT;
     const phonepeHostUrl = process.env.PHONEPE_HOST_URL;
 
-    const redirectUrl = process.env.REDIRECT_URL
+    console.log(redirectUrl);
+
 
     // Prepare payload
     const payload = {
@@ -30,6 +32,7 @@ const phonepePayment = async function (merchantTransactionId, userId, amount, ph
             "type": "PAY_PAGE"
         }
     };
+
 
     const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
     const string = base64Payload + '/pg/v1/pay' + saltKey 
@@ -72,16 +75,14 @@ const status = asyncHandler(async (req, res) => {
         throw new ApiError(400, 'Merchant Transaction Id is required');
     }
 
-    const MERCHANT_ID = process.env.MERCHANT_ID
+    const MERCHANT_ID = process.env.MERCHANT_ID;
     const successUrl = "https://indiannationalleague.party/success";
-    const failurUrl = "https://indiannationalleague.party/fail"
+    const failureUrl = "https://indiannationalleague.party/fail";
 
     // Calculate xVerify
-
-    const string = `/pg/v1/status/${process.env.MERCHANT_ID}/${merchantTransactionId}` + process.env.SALT_KEY
+    const string = `/pg/v1/status/${process.env.MERCHANT_ID}/${merchantTransactionId}` + process.env.SALT_KEY;
     const sha256 = crypto.createHash('sha256').update(string).digest('hex');
-    const checksum = sha256 + '###' + process.env.SALT_INDEX
-
+    const checksum = sha256 + '###' + process.env.SALT_INDEX;
 
     const options = {
         method: 'GET',
@@ -102,18 +103,35 @@ const status = asyncHandler(async (req, res) => {
         if (response.data.success === true) {
             // Find the corresponding transaction
             const transaction = await Transaction.findOne({ transactionId: merchantTransactionId });
-            const donation = await Donation.findOne({transactionId: transaction.transactionId})
+            const donation = await Donation.findOne({ transactionId: transaction.transactionId });
 
             if (transaction && donation) {
-                console.log('Transaction found.. & Updataing started..');
+                console.log('Transaction found.. & Updating started..');
                 transaction.paymentStatus = "completed";
                 await transaction.save();
-            
+
                 donation.paymentStatus = "completed";
                 await donation.save();
 
-                console.log('Transaction saved.. & Updataing completed..');
-            
+                console.log('Transaction saved.. & Updating completed..');
+
+                // Prepare email content for successful donation
+                const emailContent = `
+                    <p>Dear ${donation.donorName},</p>
+                    <p>Your donation has been processed successfully!</p>
+                    <p>Transaction ID: ${merchantTransactionId}</p>
+                    <p>Amount: ₹${donation.amount}</p>
+                    <p>Thank you for your generous support!</p>
+                    <p>For any inquiries, please contact us at info@indiannationalleague.party</p>
+                `;
+
+                // Send confirmation email to the donor
+                await sendMail({
+                    to: donation.donorEmail,
+                    subject: 'Donation Successful',
+                    html: emailContent,
+                });
+
                 return res.redirect(successUrl);
             } else {
                 throw new ApiError(404, 'Transaction not found');
@@ -121,21 +139,37 @@ const status = asyncHandler(async (req, res) => {
         } else {
             // Find the corresponding transaction
             const transaction = await Transaction.findOne({ transactionId: merchantTransactionId });
-            const donation = await Donation.findOne({transactionId: transaction.transactionId})
+            const donation = await Donation.findOne({ transactionId: transaction.transactionId });
 
             if (transaction && donation) {
-                console.log('Transaction found.. & Updataing started..');
+                console.log('Transaction found.. & Updating started..');
                 transaction.paymentStatus = "failed";
                 await transaction.save();
-            
+
                 donation.paymentStatus = "failed";
                 await donation.save();
 
-                console.log('Transaction saved.. & Updataing completed..');
-            
+                console.log('Transaction saved.. & Updating completed..');
+
+                // Prepare email content for failed donation
+                const emailContent = `
+                    <p>Dear ${donation.donorName},</p>
+                    <p>We regret to inform you that your donation could not be processed.</p>
+                    <p>Transaction ID: ${merchantTransactionId}</p>
+                    <p>Please try again or contact us for assistance.</p>
+                    <p>For any inquiries, please contact us at info@indiannationalleague.party</p>
+                `;
+
+                // Send failure email to the donor
+                await sendMail({
+                    to: donation.donorEmail,
+                    subject: 'Donation Failed',
+                    html: emailContent,
+                });
             }
+
             // Handle other statuses like failure or pending
-            return res.redirect(failurUrl)
+            return res.redirect(failureUrl);
         }
     } catch (error) {
         console.error(error);
