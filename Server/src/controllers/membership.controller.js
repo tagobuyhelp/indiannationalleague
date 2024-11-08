@@ -16,7 +16,7 @@ const createFees = asyncHandler(async (req, res) => {
 
     // Validate input
     if (amount === undefined || validity === undefined || email === undefined || mobileNumber === undefined) {
-        throw new ApiError(400, "Member Id, fee, email and validity are required");
+        throw new ApiError(400, "amount, fee, email and validity are required");
     }
 
     const existingMembership = await Membership.findOne({ memberId });
@@ -133,6 +133,9 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
     try {
         // Make API request to PhonePe
         const response = await axios.request(options);
+
+
+        console.log(response);
 
         // Check payment status from PhonePe response
         if (response.data.success === true) {

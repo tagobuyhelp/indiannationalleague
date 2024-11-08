@@ -34,6 +34,7 @@ import userRouter from './routes/user.routes.js';
 import donationRouter from './routes/donation.routes.js';
 import phonepeRoutes from './routes/phonepe.routes.js';
 import membershipRoutes from './routes/membership.routes.js';
+import memberRoutes from './routes/member.routes.js';
 
 
 //route diclaration
@@ -41,6 +42,7 @@ app.use("/user", userRouter);
 app.use(donationRouter);
 app.use(phonepeRoutes);
 app.use(membershipRoutes);
+app.use("/member", memberRoutes);
 
 
 
