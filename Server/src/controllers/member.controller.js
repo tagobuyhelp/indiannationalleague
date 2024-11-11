@@ -66,7 +66,7 @@ const registerMember = asyncHandler(async (req, res) => {
 // 5. Update Member Information
 const updateMember = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { email, otp, ...updates } = req.body;
+    const {updates } = req.body;
 
     const updatedMember = await Member.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
     if (!updatedMember) throw new ApiError(404, "Member not found.");
@@ -77,10 +77,6 @@ const updateMember = asyncHandler(async (req, res) => {
 // 6. Delete Member
 const deleteMember = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { email, otp } = req.body;
-
-    // Verify OTP
-    await verifyOtp({ body: { email, otp } });
 
     const deletedMember = await Member.findByIdAndDelete(id);
     if (!deletedMember) throw new ApiError(404, "Member not found.");
@@ -134,6 +130,11 @@ const checkMembership = asyncHandler(async (req, res) => {
 
         // Update membershipStatus to active
         member.membershipStatus = "active";
+        
+
+        // Store Member ID In member Model
+        member.memberId = membership.memberId;
+
         await member.save();
 
         // Respond with success message

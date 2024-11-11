@@ -8,9 +8,10 @@ import { phonepePayment } from "../utils/phonepePayment.js";
 import { sendMail } from "../utils/sendMail.js"; // Import sendMail utility
 import crypto from 'crypto';
 import axios from 'axios';
+import cron from 'node-cron';
 
 const createFees = asyncHandler(async (req, res) => {
-    const { amount, validity, email, mobileNumber } = req.body;
+    const { amount, validity, email, mobileNumber , type} = req.body;
 
     const memberId = generateUserId();
 
@@ -42,7 +43,7 @@ const createFees = asyncHandler(async (req, res) => {
         phone: mobileNumber,
         email,
         transaction: transaction._id,
-        type: 'membershipFees',
+        type: type,
         fee: amount,
         validity,
         status: 'inactive',
@@ -208,7 +209,173 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
     }
 });
 
+const renewMembership = asyncHandler(async (req, res) => {
+    const { memberId, amount, validity, email, mobileNumber } = req.body;
+
+    const membership = await Membership.findOne({ memberId });
+    if (!membership || membership.status !== 'expired') {
+        throw new ApiError(400, "Membership not active or doesn't exist");
+    }
+
+    const transactionId = generateTnxId();
+
+    const transaction = await Transaction.create({
+        memberId,
+        transactionId,
+        transactionType: 'membershipRenewal',
+        paymentStatus: 'pending',
+        amount,
+    });
+
+    membership.transaction = transaction._id;
+    membership.validity = validity;
+    membership.status = 'inactive'; // Set inactive until payment is completed
+    await membership.save();
+
+    const paymentUrl = await phonepePayment(transactionId, memberId, amount, mobileNumber, process.env.MEMBERSHIP_PAYMENT_STATUS_URL);
+    await sendMail({
+        to: email,
+        subject: "Membership Renewal Initiated",
+        html: `<p>Complete payment here: <a href="${paymentUrl}">Pay Now</a></p>`
+    });
+
+    res.status(200).json(new ApiResponse(200, paymentUrl, 'Membership renewal payment initiated.'));
+});
+
+const cancelMembership = asyncHandler(async (req, res) => {
+    const { memberId } = req.body;
+
+    const membership = await Membership.findOne({ memberId });
+    if (!membership || membership.status !== 'active') {
+        throw new ApiError(400, "No active membership found");
+    }
+
+    membership.status = 'canceled';
+    await membership.save();
+
+    await sendMail({
+        to: membership.email,
+        subject: 'Membership Canceled',
+        html: `<p>Your membership has been successfully canceled.</p>`
+    });
+
+    res.status(200).json(new ApiResponse(200, null, 'Membership canceled successfully.'));
+});
+
+
+const getMembershipDetails = asyncHandler(async (req, res) => {
+    const { memberId } = req.params;
+
+    const membership = await Membership.findOne({ memberId }).populate('transaction');
+    if (!membership) {
+        throw new ApiError(404, 'Membership not found');
+    }
+
+    res.status(200).json(new ApiResponse(200, membership, 'Membership details retrieved successfully.'));
+});
+
+
+const listAllMemberships = asyncHandler(async (req, res) => {
+    // Get query parameters for advanced functionality
+    const { page = 1, limit = 10, sort = 'createdAt', order = 'asc', status, memberId, fields } = req.query;
+
+    // Build filter object
+    const filter = {};
+    if (status) filter.status = status;
+    if (memberId) filter.memberId = memberId;
+
+    // Convert 'order' parameter to a value for sorting
+    const sortOrder = order === 'desc' ? -1 : 1;
+
+    // Select specific fields if specified
+    const selectedFields = fields ? fields.split(',').join(' ') : null;
+
+    // Calculate pagination parameters
+    const pageNumber = parseInt(page, 10);
+    const pageSize = parseInt(limit, 10);
+    const skip = (pageNumber - 1) * pageSize;
+
+    // Fetch memberships with the advanced options
+    const memberships = await Membership.find(filter)
+        .select(selectedFields)
+        .populate('transaction')
+        .sort({ [sort]: sortOrder })
+        .skip(skip)
+        .limit(pageSize);
+
+    // Count total documents for pagination info
+    const totalMemberships = await Membership.countDocuments(filter);
+
+    res.status(200).json(new ApiResponse(200, {
+        memberships,
+        total: totalMemberships,
+        page: pageNumber,
+        pages: Math.ceil(totalMemberships / pageSize),
+    }, 'All memberships retrieved successfully.'));
+});
+
+
+
+// Run every day at midnight to expire memberships past their validity
+cron.schedule('0 0 * * *', async () => {
+    const today = new Date();
+    const expiredMemberships = await Membership.updateMany(
+        { validity: { $lt: today }, status: 'active' },
+        { status: 'expired' }
+    );
+    console.log(`${expiredMemberships.nModified} memberships have expired.`);
+});
+
+
+// Schedule a cron job to run at midnight every day
+cron.schedule('0 0 * * *', async () => {
+    console.log("Running daily membership expiration check...");
+
+    // Find all expired memberships
+    const expiredMemberships = await Membership.find({ 
+        status: 'active', 
+        validity: { $lt: new Date() } 
+    });
+
+    for (const membership of expiredMemberships) {
+        const { memberId, fee: amount, validity, email, phone: mobileNumber } = membership;
+        
+        const transactionId = generateTnxId();
+
+        // Create a new transaction for the renewal
+        const transaction = await Transaction.create({
+            memberId,
+            transactionId,
+            transactionType: 'membershipRenewal',
+            paymentStatus: 'pending',
+            amount,
+        });
+
+        // Update membership details
+        membership.transaction = transaction._id;
+        membership.validity = new Date(Date.now() + validity); // Extend validity
+        membership.status = 'inactive';
+        await membership.save();
+
+        // Initiate payment and send renewal email
+        const paymentUrl = await phonepePayment(transactionId, memberId, amount, mobileNumber, process.env.MEMBERSHIP_PAYMENT_STATUS_URL);
+        
+        await sendMail({
+            to: email,
+            subject: "Membership Renewal Initiated",
+            html: `<p>Complete payment here: <a href="${paymentUrl}">Pay Now</a></p>`
+        });
+
+        console.log(`Renewal initiated for memberId: ${memberId}`);
+    }
+});
+
+
 export {
     createFees,
     checkPaymentStatus,
+    renewMembership,
+    cancelMembership,
+    getMembershipDetails,
+    listAllMemberships
 };

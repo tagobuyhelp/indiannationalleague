@@ -40,7 +40,7 @@ const membershipSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['inactive', 'active', 'expired'],
+        enum: ['inactive', 'active', 'expired', 'canceled'],
         default: 'inactive'
     }
 }, { timestamps: true });

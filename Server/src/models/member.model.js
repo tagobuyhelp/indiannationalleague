@@ -1,6 +1,9 @@
 import mongoose, { Schema } from "mongoose";
 
 const memberSchema = new Schema({
+    memberId: {
+        type: String,
+    },
     fullname: {
         type: String,
         required: true,

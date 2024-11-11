@@ -1,6 +1,7 @@
 import { Donation } from '../models/donation.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/apiError.js';
+import { ApiResponse } from '../utils/apiResponse.js';
 import { phonepePayment } from '../utils/phonepePayment.js';
 import { generateUserId, generateTnxId } from '../utils/generateId.js';
 import { Transaction } from '../models/transaction.model.js';
@@ -129,7 +130,38 @@ const createDonation = asyncHandler(async (req, res) => {
     });
 });
 
+const getDonations = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10, sort = 'createdAt', order = 'desc', ...filters } = req.query;
+    
+    // Parse sorting order
+    const sortOrder = order === 'asc' ? 1 : -1;
+    const sortOptions = { [sort]: sortOrder };
+
+    // Filter and retrieve specified fields
+    const fieldSelection = req.query.fields ? req.query.fields.split(',').join(' ') : '';
+
+    // Convert page and limit to integers for pagination
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+
+    // Build query based on filters
+    const query = { ...filters };
+
+    // Fetch donations with advanced options
+    const donations = await Donation.find(query)
+        .sort(sortOptions)
+        .select(fieldSelection)
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum);
+
+    // Send response
+    res.status(200).json(new ApiResponse(200, donations, 'All donations retrieved successfully.'));
+});
+
+
+
 export {
     handleDonationRequest,
-    createDonation
+    createDonation,
+    getDonations
 };
