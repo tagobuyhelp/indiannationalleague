@@ -2,9 +2,19 @@ import express, { request, Router } from 'express';
 import cors from 'cors';
 import cookiesParser from 'cookie-parser';
 import errorMiddleware from './middleware/error.middleware.js';
+// import { generateIdCard } from './utils/generateIdCard.js';
 
 
 
+// // Example usage
+// generateIdCard(
+//     'Tarik Aziz',
+//     'INL373334',
+//     '01/01/1980',
+//     'Regular',
+//     '01/01/2025',
+//     'A:/Development/indiannationalleague/Server/images/TARIK.jpg',
+// );
 
 
 
@@ -37,6 +47,10 @@ import membershipRoutes from './routes/membership.routes.js';
 import memberRoutes from './routes/member.routes.js';
 import transactionRoutes from './routes/transaction.routes.js';
 import noticeRoutes from './routes/notice.routes.js';
+import countryRoutes from './routes/country.routes.js';
+import stateRoutes from './routes/state.routes.js';
+import districtRoutes from './routes/district.routes.js';
+import parliamentConstituencyRoutes from './routes/parliamentConstituency.routes.js';
 
 
 //route diclaration
@@ -47,6 +61,10 @@ app.use(membershipRoutes);
 app.use("/member", memberRoutes);
 app.use(transactionRoutes);
 app.use(noticeRoutes);
+app.use(countryRoutes);
+app.use(stateRoutes);
+app.use(districtRoutes);
+app.use(parliamentConstituencyRoutes);
 
 
 

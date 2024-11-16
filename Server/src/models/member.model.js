@@ -93,6 +93,10 @@ const memberSchema = new Schema({
         type: String,
         trim: true,
     },
+    idCard: {
+        type: String,
+        trim: true,
+    }
 }, { timestamps: true });
 
 export const Member = mongoose.model('Member', memberSchema);

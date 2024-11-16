@@ -1,108 +1,166 @@
 import { createCanvas, loadImage } from 'canvas';
 import { writeFile } from 'fs/promises';
+import { generateAndSaveBarcode, findBarcodeByNumber } from '../utils/barcodeGenerator.js';
+import path from 'path';
+import { existsSync } from 'fs';
+import fs from 'fs';
+import { Member } from '../models/member.model.js';
+import { Membership } from '../models/membership.model.js';
+import { sendMail } from '../utils/sendMail.js';
 
-// Create a canvas for the portrait ID card (400x600 pixels for higher resolution)
-const canvas = createCanvas(400, 600);
-const ctx = canvas.getContext('2d');
+// Directory where ID cards will be saved
+const idCardDirectory = path.resolve('images/idcards');
 
-// Function to draw a rounded rectangle
-function drawRoundedRect(ctx, x, y, width, height, radius) {
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + width - radius, y);
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-    ctx.lineTo(x + width, y + height - radius);
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    ctx.lineTo(x + radius, y + height);
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
-    ctx.closePath();
-    ctx.clip();  // Set the clipping region for the rounded rectangle
+// Ensure the directory exists
+if (!fs.existsSync(idCardDirectory)) {
+    fs.mkdirSync(idCardDirectory, { recursive: true });
 }
 
-// Background color (White)
-ctx.fillStyle = '#FFFFFF';
-ctx.fillRect(0, 0, 400, 600);
+export const generateIdCard = async (name, id, dob, type, validUpto, memberPhotoPath) => {
+    try {
+        // Find or generate the barcode for the ID
+        let barcodePath = await findBarcodeByNumber(id);
+        if (!barcodePath || !barcodePath.filePath) {
+            barcodePath = await generateAndSaveBarcode(id);
+        }
 
-// Use brand color for text (Dark Gray: #333333)
-ctx.fillStyle = '#006600'; // Branding "INL" Logo
+        // Normalize file paths for the member photo and barcode
+        const normalizedMemberPhotoPath = path.resolve(memberPhotoPath);
+        const normalizedBarcodePath = path.resolve(barcodePath.filePath);
 
-// Branding text at the top left with extra weight (like a logo)
-ctx.font = '900 50px Arial';
-ctx.textAlign = 'left';
-ctx.fillText('INL', 20, 60); // Branding "INL" Logo
-ctx.font = '600 20px Arial';
-ctx.fillText('INDIAN NATIONAL LEAGUE', 20, 85)
+        // Ensure both the photo and barcode exist
+        if (!existsSync(normalizedMemberPhotoPath)) {
+            throw new Error(`Member photo does not exist at path: ${normalizedMemberPhotoPath}`);
+        }
+        if (!existsSync(normalizedBarcodePath)) {
+            throw new Error(`Barcode does not exist at path: ${normalizedBarcodePath}`);
+        }
 
-// Member ID title at the top right with different font weights for "Member" and "ID"
-ctx.fillStyle = '#333333';
-ctx.font = '500 30px Arial';
-ctx.textAlign = 'right';
-ctx.fillText('MEMBER', 335, 50); // "Member" text
-ctx.fillStyle = '#006600';
-ctx.font = '800 40px Arial';
-ctx.fillText('ID', 380, 55); // "ID" text
+        // Create a canvas for the portrait ID card
+        const canvas = createCanvas(400, 600);
+        const ctx = canvas.getContext('2d');
 
-// Member Name (Larger Font)
-ctx.fillStyle = '#333333';
-ctx.font = '600 28px Arial';
-ctx.textAlign = 'left';
-ctx.fillText('TARIK AZIZ', 160, 200); // Member Name
+        // Helper function: Draw a rounded rectangle
+        const drawRoundedRect = (ctx, x, y, width, height, radius) => {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.clip();
+        };
 
-// Member ID Number (Bold)
-ctx.font = '500 26px Arial';
-ctx.fillText('ID: INL19302', 160, 250); // ID Number
+        // Set background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, 400, 600);
 
-// Date of Birth
-ctx.font = '20px Arial';
-ctx.fillText('16-07-2000', 160, 300); // Date of Birth
+        // Branding and member details
+        ctx.fillStyle = '#006600';
+        ctx.font = '900 50px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('INL', 20, 60);
+        ctx.font = '600 20px Arial, sans-serif';
+        ctx.fillText('INDIAN NATIONAL LEAGUE', 20, 85);
 
-// Save the current context state before clipping
-ctx.save();
+        ctx.fillStyle = '#333333';
+        ctx.font = '500 30px Arial, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('MEMBER', 335, 50);
+        ctx.fillStyle = '#006600';
+        ctx.font = '800 40px Arial, sans-serif';
+        ctx.fillText('ID', 380, 55);
 
-// Load and add the member image and barcode image
-Promise.all([
-    loadImage('A:/Development/indiannationalleague/Server/images/TARIK.jpg'), // Member photo path
-    loadImage('A:/Development/indiannationalleague/Server/images/image.png')   // Barcode image path
-]).then(([memberImage, barcode]) => {
-    // Draw the rounded rectangle for the member image (increased size)
-    drawRoundedRect(ctx, 20, 160, 120, 150, 15); // Increased width and height
+        // Member details
+        ctx.fillStyle = '#333333';
+        ctx.font = '600 28px Arial, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${name}`, 160, 200);
+        ctx.font = '500 26px Arial, sans-serif';
+        ctx.fillText(`ID: ${id}`, 160, 250);
+        ctx.font = '20px Arial, sans-serif';
+        ctx.fillText(`DOB: ${dob}`, 160, 300);
 
-    // Draw the member image within the rounded rectangle (larger)
-    ctx.drawImage(memberImage, 20, 160, 120, 150); // Increased size for the image
+        // Load images concurrently
+        const [memberImage, barcode] = await Promise.all([
+            loadImage(normalizedMemberPhotoPath),
+            loadImage(normalizedBarcodePath),
+        ]);
 
-    // Restore the context state to remove clipping
-    ctx.restore();
+        // Draw member photo
+        ctx.save();
+        drawRoundedRect(ctx, 20, 160, 120, 150, 15);
+        ctx.drawImage(memberImage, 20, 160, 120, 150);
+        ctx.restore();
 
-    // Draw the barcode with a 10px left adjustment
-    ctx.drawImage(barcode, -20, 335, 440, 150); // Adjusted x coordinate to 6 for left alignment
+        // Draw barcode
+        ctx.drawImage(barcode, 20, 355, 360, 130);
 
-    //Member Type & Valid Upto
-    ctx.font = '500 12px Arial';
-    ctx.fillText('TYPE: ACTIVE,', 20, 335);
-    ctx.fillText('VALID UPTO: 02-10-2027', 130, 335);
+        // Additional details
+        ctx.font = '500 12px Arial, sans-serif';
+        ctx.fillText(`TYPE: ${type}`, 20, 335);
+        ctx.fillText(`VALID UPTO: ${validUpto}`, 130, 335);
 
-    // Additional Text below the barcode (like in the image)
-    ctx.font = '500 15px Arial';
-    ctx.fillText('Indian National League', 20, 550); // Name below the barcode
-    ctx.fillText('Telephone No: 9532835303', 20, 575); // ID below the barcode
+        // Footer
+        ctx.font = '500 15px Arial, sans-serif';
+        ctx.fillText('Indian National League', 20, 550);
+        ctx.fillText('Telephone No: 9532835303', 20, 575);
+
+        ctx.fillStyle = '#006600';
+        ctx.font = '900 45px Arial, sans-serif';
+        ctx.fillText('INL', 290, 550);
+        ctx.fillStyle = '#333333';
+        ctx.font = '500 20px Arial, sans-serif';
+        ctx.fillText('MEMBER', 290, 580);
+
+        // Save ID card
+        const idCardPath = path.join(idCardDirectory, `inl_member_id_card_${id}.png`);
+        const buffer = canvas.toBuffer('image/png');
+        await writeFile(idCardPath, buffer);
+
+        // Update the member record with the new ID card path
+        const membership = await Membership.findOne({ memberId: id });
+        if (membership) {
+            const member = await Member.findOne({ email: membership.email, phone: membership.phone });
+            if (member) {
+                member.idCard = `/images/idcards/inl_member_id_card_${id}.png`;
+                await member.save();
+            }
+        }
+
+        // Email the ID card using sendMail utility
+        const memberEmail = membership.email;
+        const emailSubject = 'Your INL Membership ID Card';
+        const emailBody = `
+            <p>Dear ${name},</p>
+            <p>Please find attached your INL Membership ID card.</p>
+            <p>Best Regards,<br>Indian National League</p>
+        `;
+
+        await sendMail({
+            to: memberEmail,
+            subject: emailSubject,
+            html: emailBody,
+            attachments: [
+                {
+                    filename: `inl_member_id_card_${id}.png`,
+                    path: idCardPath, // Attach the generated ID card
+                },
+            ],
+        });
+        
+        
 
 
-
-    //footer left side inl branding
-    ctx.fillStyle = '#006600';
-    ctx.font = '900 45px Arial';
-    ctx.fillText('INL', 290, 550);
-    ctx.fillStyle = '#333333';
-    ctx.font = '500 20px Arial';
-    ctx.fillText('MEMBER', 290 , 580)
-
-    // Convert the canvas to a buffer and write it to a file
-    const buffer = canvas.toBuffer('image/png');
-    return writeFile('inl_member_id_card.png', buffer); // Save the file
-}).then(() => {
-    console.log('The portrait ID card with the member image was created.');
-}).catch(err => {
-    console.error('Failed to create the ID card:', err);
-});
+        console.log('ID card email sent successfully to:', memberEmail);
+        return true;
+    } catch (err) {
+        console.error('Failed to create the ID card:', err.message);
+        return false;
+    }
+};

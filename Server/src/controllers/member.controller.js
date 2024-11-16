@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/apiResponse.js";
 import { generateOTP } from "../utils/otpGenerator.js";
 import { sendMail } from "../utils/sendMail.js";
 import { Membership } from "../models/membership.model.js";
+import { generateIdCard } from "../utils/generateIdCard.js";
 
 // 1. Generate OTP and Send to Email
 const generateAndSendOtp = asyncHandler(async (email) => {
@@ -50,18 +51,23 @@ const verifyMember = asyncHandler(async (req, res) => {
 
 // 4. Register a New Member
 const registerMember = asyncHandler(async (req, res) => {
-    const { email,  ...memberData } = req.body;
-    
-    
+    const { email, ...memberData } = req.body;
 
+    // Check if a member with the same Aadhaar and phone number already exists
     const existingMember = await Member.findOne({ aadhaar: memberData.aadhaar, phone: memberData.phone });
     if (existingMember) {
         throw new ApiError(409, "Member already exists. Use the update option.");
     }
 
-    const member = await Member.create({ email, ...memberData });
+    // Check if a photo was uploaded and set the photoPath
+    const photoPath = req.file ? `/images/photos/${req.file.filename}` : null;
+
+    // Create the new member with the photo path if available
+    const member = await Member.create({ email, ...memberData, photo: photoPath });
+    
     return res.status(201).json(new ApiResponse(201, "Member registered successfully.", member));
 });
+
 
 // 5. Update Member Information
 const updateMember = asyncHandler(async (req, res) => {
@@ -146,6 +152,75 @@ const checkMembership = asyncHandler(async (req, res) => {
 });
 
 
+// 10. Member Id Card Generator
+const memberIdCardGenerator = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Fetch member by ID
+        const member = await Member.findById(id);
+        if (!member) {
+            throw new ApiError(404, "Member not found");
+        }
+
+        // Fetch membership by email and phone
+        const membership = await Membership.findOne({ email: member.email, phone: member.phone });
+        if (!membership) {
+            throw new ApiError(404, "Membership not found");
+        }
+
+        if (!member.photo) {
+            throw new ApiError(404, "Member Photo not found");
+        }
+
+        
+
+        // Extract details
+        const memberName = member.fullname;
+        const memberId = membership.memberId;
+        const memberDob = new Intl.DateTimeFormat('en-GB').format(new Date(member.dob));
+        const memberType = membership.type.toUpperCase();
+        
+        const membershipValidUpto = new Date(membership.createdAt);
+        membershipValidUpto.setFullYear(membershipValidUpto.getFullYear() + membership.validity);
+        const formattedMembershipValidUpto = new Intl.DateTimeFormat('en-GB').format(membershipValidUpto);
+        const memberPhoto = member.photo;
+
+        // Generate the ID card if it doesn't exist
+        if (!member.idCard) {
+            const generated = await generateIdCard(
+                memberName,
+                memberId,
+                memberDob,
+                memberType,
+                formattedMembershipValidUpto,
+                memberPhoto
+            );
+
+            if (!generated) {
+                throw new ApiError(500, "ID Card Generation Failed");
+            }
+
+            // Update the member record with the new ID card path
+            member.idCard = `/images/idcards/inl_member_id_card_${memberId}.png`;
+            await member.save();
+        }
+
+        // Send response
+        res.status(200).json({
+            success: true,
+            message: "ID card generated & sent successfully",
+            idCardPath: member.idCard,
+        });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || "An error occurred while generating the ID card",
+        });
+    }
+});
+
+
 export {
     verifyMember,
     registerMember,
@@ -154,5 +229,6 @@ export {
     deleteMember,
     getAllMembers,
     verifyOtp,
-    checkMembership
+    checkMembership,
+    memberIdCardGenerator,
 };

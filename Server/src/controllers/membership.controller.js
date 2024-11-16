@@ -6,6 +6,7 @@ import { Transaction } from "../models/transaction.model.js";
 import { generateTnxId, generateUserId } from "../utils/generateId.js";
 import { phonepePayment } from "../utils/phonepePayment.js";
 import { sendMail } from "../utils/sendMail.js"; // Import sendMail utility
+import { Member } from "../models/member.model.js";
 import crypto from 'crypto';
 import axios from 'axios';
 import cron from 'node-cron';
@@ -143,6 +144,7 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
             // Find the corresponding transaction
             const transaction = await Transaction.findOne({ transactionId: merchantTransactionId });
             const membership = await Membership.findOne({ transaction: transaction._id });
+            const member = await Member.findOne({email: membership.email, phone: membership.phone});
 
 
             if (transaction && membership) {
@@ -151,6 +153,8 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
 
                 membership.status = "active";
                 await membership.save();
+
+                member.membershipStatus = "active";
 
                 // Send success email
                 const emailContent = `

@@ -1,4 +1,6 @@
 import express from 'express';
+import { uploadPhoto } from '../middleware/photoUpload.middleware.js';
+
 import {
     verifyMember,
     registerMember,
@@ -7,8 +9,10 @@ import {
     deleteMember,
     getAllMembers,
     verifyOtp,
-    checkMembership
+    checkMembership,
+    memberIdCardGenerator,
 } from '../controllers/member.controller.js';
+
 
 const router = express.Router();
 
@@ -22,7 +26,7 @@ router.post('/verify-otp', verifyOtp); // Verifies OTP for registration or updat
 router.get('/check-memberships', checkMembership); // Check membership status
 
 // Route for registering a new member (requires OTP verification)
-router.post('/register', registerMember); // Registers a new member after OTP verification
+router.post('/register', uploadPhoto, registerMember); // Registers a new member after OTP verification
 
 // Route for retrieving all members with pagination
 router.get('/', getAllMembers); // Retrieves all members with pagination
@@ -35,5 +39,8 @@ router.put('/:id', updateMember); // Updates member info after OTP verification
 
 // Route for deleting a member (requires OTP verification)
 router.delete('/:id', deleteMember); // Deletes a member after OTP verification
+
+// Member id card generator by member id 
+router.post('/generate-id-card/:id', memberIdCardGenerator)
 
 export default router;
