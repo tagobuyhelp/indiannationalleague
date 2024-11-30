@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Printer, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Printer } from 'lucide-react';
 import MemberCard from '../components/MemberCard';
 import SearchFilter from '../components/SearchFilter';
 import AddMemberModal from '../components/AddMemberModal';
 import MemberEditModal from '../components/MemberEditModal';
 import PrintLayout from '../components/PrintLayout';
 import { memberService, Member, CreateMemberPayload } from '../services/api';
-import { API_BASE_URL } from '../config/api';
 
 const Members = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState<{
+    country?: string;
+    state?: string;
+    district?: string;
+    parliamentConstituency?: string;
+  }>({});
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -22,13 +27,6 @@ const Members = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalMembers, setTotalMembers] = useState(0);
   const [limit, setLimit] = useState(10);
-  const [locationFilters, setLocationFilters] = useState({
-    state: '',
-    district: '',
-    parliamentConstituency: '',
-    assemblyConstituency: '',
-    panchayat: ''
-  });
 
   useEffect(() => {
     fetchMembers();
@@ -37,14 +35,10 @@ const Members = () => {
   const fetchMembers = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/member?page=${currentPage}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch members');
-      }
-      const data = await response.json();
-      setMembers(data.message.data);
-      setTotalMembers(data.message.total);
-      setTotalPages(Math.ceil(data.message.total / limit));
+      const response = await memberService.getMembers();
+      setMembers(response.message.data);
+      setTotalMembers(response.message.total);
+      setTotalPages(Math.ceil(response.message.total / limit));
       setError(null);
     } catch (err) {
       setError('Failed to fetch members');
@@ -52,14 +46,6 @@ const Members = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLocationFilter = (field: string, value: string) => {
-    setLocationFilters(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    setCurrentPage(1);
   };
 
   const handleAddMember = async (data: CreateMemberPayload) => {
@@ -98,24 +84,12 @@ const Members = () => {
 
   const handleCheckMembership = async (email: string, phone: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/member/check-memberships`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, phone }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check membership');
-      }
-
-      const result = await response.json();
-      alert(result.message || 'Membership check completed');
+      const result = await memberService.checkMembership(email, phone);
+      alert(result.data || result.message || 'Membership check completed');
       fetchMembers();
     } catch (error) {
       console.error('Error checking membership:', error);
-      alert('Failed to check membership. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to check membership status');
     }
   };
 
@@ -127,64 +101,6 @@ const Members = () => {
   const handlePrintMember = (member: Member) => {
     setSelectedMember(member);
     window.print();
-  };
-
-  const handleGenerateId = async (member: Member) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/member/generate-id`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ memberId: member._id }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate ID card');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `id-card-${member._id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error generating ID card:', error);
-      alert('Failed to generate ID card. Please try again.');
-    }
-  };
-
-  const handleGenerateAllIds = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/member/generate-all-ids`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ memberIds: members.map(m => m._id) }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate ID cards');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'all-id-cards.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error generating ID cards:', error);
-      alert('Failed to generate ID cards. Please try again.');
-    }
   };
 
   const handlePageChange = (page: number) => {
@@ -204,17 +120,15 @@ const Members = () => {
                          member.aadhaar.includes(searchTerm);
     const matchesStatus = !statusFilter || member.membershipStatus === statusFilter;
     const matchesType = !typeFilter || member.membershipType === typeFilter;
-    const matchesState = !locationFilters.state || member.state.toLowerCase() === locationFilters.state.toLowerCase();
-    const matchesDistrict = !locationFilters.district || member.district.toLowerCase() === locationFilters.district.toLowerCase();
-    const matchesParliament = !locationFilters.parliamentConstituency || 
-                             member.parliamentConstituency.toLowerCase() === locationFilters.parliamentConstituency.toLowerCase();
-    const matchesAssembly = !locationFilters.assemblyConstituency || 
-                           member.assemblyConstituency.toLowerCase() === locationFilters.assemblyConstituency.toLowerCase();
-    const matchesPanchayat = !locationFilters.panchayat || 
-                            member.panchayat.toLowerCase() === locationFilters.panchayat.toLowerCase();
+    const matchesLocation = Object.entries(locationFilter).every(([key, value]) => {
+      if (!value) return true;
+      if (key === 'parliamentConstituency') {
+        return member.parliamentConstituency === value;
+      }
+      return member[key as keyof Member] === value;
+    });
     
-    return matchesSearch && matchesStatus && matchesType && matchesState && 
-           matchesDistrict && matchesParliament && matchesAssembly && matchesPanchayat;
+    return matchesSearch && matchesStatus && matchesType && matchesLocation;
   });
 
   if (isLoading) {
@@ -235,13 +149,6 @@ const Members = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900">Members</h1>
           <div className="flex space-x-3">
-            <button
-              onClick={handleGenerateAllIds}
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg flex items-center space-x-2 border border-blue-200 hover:bg-blue-50"
-            >
-              <CreditCard className="w-5 h-5" />
-              <span>Generate All IDs</span>
-            </button>
             <button 
               onClick={handlePrintList}
               className="bg-white text-gray-700 px-4 py-2 rounded-lg flex items-center space-x-2 border border-gray-300 hover:bg-gray-50"
@@ -264,7 +171,7 @@ const Members = () => {
             onSearch={setSearchTerm}
             onFilterStatus={setStatusFilter}
             onFilterType={setTypeFilter}
-            onFilterLocation={handleLocationFilter}
+            onFilterLocation={setLocationFilter}
           />
 
           <div className="overflow-x-auto">
@@ -287,7 +194,6 @@ const Members = () => {
                     key={member._id}
                     member={member}
                     onPrint={handlePrintMember}
-                    onGenerateId={handleGenerateId}
                     onEdit={(member) => setEditMember(member)}
                     onDelete={handleDeleteMember}
                     onCheckMembership={handleCheckMembership}
@@ -318,33 +224,16 @@ const Members = () => {
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                  <span>Previous</span>
+                  Previous
                 </button>
-                <div className="flex space-x-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`px-3 py-1 border rounded-lg text-sm ${
-                        currentPage === page
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </div>
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
                 >
-                  <span>Next</span>
-                  <ChevronRight className="w-4 h-4" />
+                  Next
                 </button>
               </div>
             </div>

@@ -1,33 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Users, DollarSign, ShoppingCart, TrendingUp } from 'lucide-react';
 import AddMemberModal from '../components/AddMemberModal';
 import { API_BASE_URL } from '../config/api';
 
-interface DashboardMetrics {
-  totalMembers: number;
-  totalRevenue: number;
-  totalTransactions: number;
-  totalDonations: number;
-  memberGrowth: number;
-  revenueGrowth: number;
-  transactionGrowth: number;
-  donationGrowth: number;
+interface Member {
+  _id: string;
+  memberId: string;
+  fullname: string;
+  membershipType: string;
+  state: string;
+  createdAt: string;
 }
 
 interface Transaction {
   _id: string;
-  memberId: string;
-  transactionId: string;
-  transactionType: string;
-  paymentStatus: string;
   amount: number;
   createdAt: string;
-}
-
-interface Member {
-  _id: string;
-  createdAt: string;
+  paymentStatus: string;
 }
 
 interface Donation {
@@ -38,222 +27,134 @@ interface Donation {
 }
 
 const Dashboard = () => {
-  const navigate = useNavigate();
-  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState('30');
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalMembers: 0,
-    totalRevenue: 0,
-    totalTransactions: 0,
-    totalDonations: 0,
-    memberGrowth: 0,
-    revenueGrowth: 0,
-    transactionGrowth: 0,
-    donationGrowth: 0
-  });
+  const [members, setMembers] = useState<Member[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [donations, setDonations] = useState<Donation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchAllMetrics();
-  }, [selectedPeriod]);
+    fetchDashboardData();
+  }, []);
 
-  const getDateRange = () => {
-    const now = new Date();
-    const periodDays = parseInt(selectedPeriod);
-    let startDate: Date;
-    let previousStartDate: Date;
-    let previousEndDate: Date;
-
-    if (selectedPeriod === 'this-year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
-      previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
-      previousEndDate = new Date(now.getFullYear() - 1, 11, 31);
-    } else if (selectedPeriod === 'previous-year') {
-      startDate = new Date(now.getFullYear() - 1, 0, 1);
-      previousStartDate = new Date(now.getFullYear() - 2, 0, 1);
-      previousEndDate = new Date(now.getFullYear() - 2, 11, 31);
-    } else {
-      startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
-      previousStartDate = new Date(startDate.getTime() - (periodDays * 24 * 60 * 60 * 1000));
-      previousEndDate = startDate;
-    }
-
-    return { startDate, previousStartDate, previousEndDate };
-  };
-
-  const fetchAllMetrics = async () => {
+  const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
-      const [membersResponse, transactionsResponse, donationsResponse] = await Promise.all([
+      const [membersRes, transactionsRes, donationsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/member`),
         fetch(`${API_BASE_URL}/transaction`),
         fetch(`${API_BASE_URL}/donations`)
       ]);
 
-      if (!membersResponse.ok || !transactionsResponse.ok || !donationsResponse.ok) {
-        throw new Error('Failed to fetch data');
-      }
+      const membersData = await membersRes.json();
+      const transactionsData = await transactionsRes.json();
+      const donationsData = await donationsRes.json();
 
-      const membersData = await membersResponse.json();
-      const transactionsData = await transactionsResponse.json();
-      const donationsData = await donationsResponse.json();
-
-      calculateMetrics(
-        membersData.message.data,
-        transactionsData.data.transactions,
-        donationsData.data
-      );
+      setMembers(membersData.message.data || []);
+      setTransactions(transactionsData.data.transactions || []);
+      setDonations(donationsData.data || []);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch metrics');
-      console.error('Error fetching metrics:', err);
+      setError('Failed to fetch dashboard data');
+      console.error('Error fetching dashboard data:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const calculateMetrics = (members: Member[], transactions: Transaction[], donations: Donation[]) => {
-    const { startDate, previousStartDate, previousEndDate } = getDateRange();
-
-    // Current period calculations
-    const currentMembers = members.filter(m => new Date(m.createdAt) >= startDate);
-    const currentTransactions = transactions.filter(t => 
-      new Date(t.createdAt) >= startDate && t.paymentStatus === 'completed'
-    );
-    const currentDonations = donations.filter(d => 
-      new Date(d.createdAt) >= startDate && d.paymentStatus === 'completed'
-    );
-
-    // Previous period calculations
-    const previousMembers = members.filter(m => 
-      new Date(m.createdAt) >= previousStartDate && new Date(m.createdAt) <= previousEndDate
-    );
-    const previousTransactions = transactions.filter(t => 
-      new Date(t.createdAt) >= previousStartDate && 
-      new Date(t.createdAt) <= previousEndDate && 
-      t.paymentStatus === 'completed'
-    );
-    const previousDonations = donations.filter(d => 
-      new Date(d.createdAt) >= previousStartDate && 
-      new Date(d.createdAt) <= previousEndDate && 
-      d.paymentStatus === 'completed'
-    );
-
-    // Calculate current metrics
-    const currentRevenue = currentTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const currentDonationsAmount = currentDonations.reduce((sum, d) => sum + d.amount, 0);
-
-    // Calculate previous metrics
-    const previousRevenue = previousTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const previousDonationsAmount = previousDonations.reduce((sum, d) => sum + d.amount, 0);
-
-    // Calculate growth percentages
-    const calculateGrowth = (current: number, previous: number) => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return ((current - previous) / previous) * 100;
+  const calculateMembershipStats = () => {
+    const total = members.length;
+    const active = members.filter(m => m.membershipType === 'active').length;
+    const general = members.filter(m => m.membershipType === 'general').length;
+    
+    return {
+      total,
+      active,
+      general,
+      activePercentage: total > 0 ? ((active / total) * 100).toFixed(1) : '0',
+      generalPercentage: total > 0 ? ((general / total) * 100).toFixed(1) : '0'
     };
-
-    setMetrics({
-      totalMembers: currentMembers.length,
-      totalRevenue: currentRevenue + currentDonationsAmount,
-      totalTransactions: currentTransactions.length,
-      totalDonations: currentDonations.length,
-      memberGrowth: calculateGrowth(currentMembers.length, previousMembers.length),
-      revenueGrowth: calculateGrowth(
-        currentRevenue + currentDonationsAmount,
-        previousRevenue + previousDonationsAmount
-      ),
-      transactionGrowth: calculateGrowth(currentTransactions.length, previousTransactions.length),
-      donationGrowth: calculateGrowth(currentDonations.length, previousDonations.length)
-    });
   };
 
-  const handleAddMember = (data: any) => {
-    console.log('New member data:', data);
-    setIsAddMemberModalOpen(false);
+  const calculateStateDistribution = () => {
+    const distribution = members.reduce((acc: { [key: string]: number }, member) => {
+      acc[member.state] = (acc[member.state] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(distribution)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
   };
 
-  const handleNewTransaction = () => {
-    navigate('/transactions');
-  };
+  const getRecentActivity = () => {
+    const allActivity = [
+      ...members.map(m => ({
+        type: 'member',
+        date: new Date(m.createdAt),
+        text: `New member registered: ${m.fullname}`
+      })),
+      ...transactions.filter(t => t.paymentStatus === 'completed').map(t => ({
+        type: 'transaction',
+        date: new Date(t.createdAt),
+        text: `Payment received: ₹${t.amount}`
+      })),
+      ...donations.filter(d => d.paymentStatus === 'completed').map(d => ({
+        type: 'donation',
+        date: new Date(d.createdAt),
+        text: `New donation: ₹${d.amount}`
+      }))
+    ];
 
-  const handleGenerateReport = () => {
-    const csvContent = [
-      'Metric,Value,Growth',
-      `Total Members,${metrics.totalMembers},${metrics.memberGrowth}%`,
-      `Total Revenue,₹${metrics.totalRevenue},${metrics.revenueGrowth}%`,
-      `Total Transactions,${metrics.totalTransactions},${metrics.transactionGrowth}%`,
-      `Total Donations,${metrics.totalDonations},${metrics.donationGrowth}%`
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dashboard_report_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleSendNewsletter = () => {
-    navigate('/notices');
+    return allActivity
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 5);
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
   if (error) {
-    return <div className="flex items-center justify-center h-64 text-red-600">{error}</div>;
+    return (
+      <div className="flex items-center justify-center h-screen text-red-600">
+        {error}
+      </div>
+    );
   }
+
+  const membershipStats = calculateMembershipStats();
+  const stateDistribution = calculateStateDistribution();
+  const recentActivity = getRecentActivity();
 
   const stats = [
     { 
       icon: Users, 
       title: 'Total Members', 
-      value: metrics.totalMembers.toLocaleString(), 
-      change: `${metrics.memberGrowth >= 0 ? '+' : ''}${metrics.memberGrowth.toFixed(1)}% from previous period` 
+      value: membershipStats.total.toLocaleString()
     },
     { 
       icon: DollarSign, 
       title: 'Total Revenue', 
-      value: `₹${metrics.totalRevenue.toLocaleString()}`, 
-      change: `${metrics.revenueGrowth >= 0 ? '+' : ''}${metrics.revenueGrowth.toFixed(1)}% from previous period` 
+      value: `₹${transactions.reduce((sum, t) => sum + (t.paymentStatus === 'completed' ? t.amount : 0), 0).toLocaleString()}`
     },
     { 
       icon: ShoppingCart, 
       title: 'Total Transactions', 
-      value: metrics.totalTransactions.toLocaleString(), 
-      change: `${metrics.transactionGrowth >= 0 ? '+' : ''}${metrics.transactionGrowth.toFixed(1)}% from previous period` 
+      value: transactions.filter(t => t.paymentStatus === 'completed').length.toLocaleString()
     },
     { 
       icon: TrendingUp, 
       title: 'Total Donations', 
-      value: metrics.totalDonations.toLocaleString(), 
-      change: `${metrics.donationGrowth >= 0 ? '+' : ''}${metrics.donationGrowth.toFixed(1)}% from previous period` 
-    },
+      value: donations.filter(d => d.paymentStatus === 'completed').length.toLocaleString()
+    }
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="flex space-x-3">
-          <select 
-            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm"
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-          >
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="this-year">This Year</option>
-            <option value="previous-year">Previous Year</option>
-          </select>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -264,16 +165,19 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
+          <h2 className="text-lg font-semibold mb-6">State-wise Distribution</h2>
           <div className="space-y-4">
-            {[1, 2, 3, 4].map((_, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100"></div>
-                  <div>
-                    <p className="font-medium">New member registered</p>
-                    <p className="text-sm text-gray-500">2 hours ago</p>
-                  </div>
+            {stateDistribution.map(([state, count]) => (
+              <div key={state}>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">{state}</span>
+                  <span className="text-sm font-medium text-gray-900">{count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-blue-600 h-2.5 rounded-full" 
+                    style={{ width: `${(count / members.length) * 100}%` }}
+                  ></div>
                 </div>
               </div>
             ))}
@@ -281,50 +185,106 @@ const Dashboard = () => {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setIsAddMemberModalOpen(true)}
-              className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <p className="font-medium">Add Member</p>
-              <p className="text-sm text-gray-500">Register new member</p>
-            </button>
-            <button
-              onClick={handleNewTransaction}
-              className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <p className="font-medium">New Transaction</p>
-              <p className="text-sm text-gray-500">Record payment</p>
-            </button>
-            <button
-              onClick={handleGenerateReport}
-              className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <p className="font-medium">Generate Report</p>
-              <p className="text-sm text-gray-500">Download statistics</p>
-            </button>
-            <button
-              onClick={handleSendNewsletter}
-              className="p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <p className="font-medium">Send Newsletter</p>
-              <p className="text-sm text-gray-500">Compose update</p>
-            </button>
+          <h2 className="text-lg font-semibold mb-6">Membership Overview</h2>
+          <div className="space-y-6">
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">Active Members</span>
+                <span className="text-sm font-medium text-gray-900">{membershipStats.active}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-blue-600 h-2.5 rounded-full" 
+                  style={{ width: `${membershipStats.activePercentage}%` }}
+                ></div>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {membershipStats.activePercentage}% of total members
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-medium text-gray-600">General Members</span>
+                <span className="text-sm font-medium text-gray-900">{membershipStats.general}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-green-600 h-2.5 rounded-full" 
+                  style={{ width: `${membershipStats.generalPercentage}%` }}
+                ></div>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {membershipStats.generalPercentage}% of total members
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">{membershipStats.total}</div>
+                  <div className="text-sm text-gray-500">Total Members</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {membershipStats.activePercentage}%
+                  </div>
+                  <div className="text-sm text-gray-500">Active Rate</div>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
+        <div className="space-y-4">
+          {recentActivity.map((activity, index) => (
+            <div key={index} className="flex items-center justify-between py-3 border-b last:border-0">
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  activity.type === 'member' ? 'bg-blue-100 text-blue-600' :
+                  activity.type === 'transaction' ? 'bg-green-100 text-green-600' :
+                  'bg-purple-100 text-purple-600'
+                }`}>
+                  {activity.type === 'member' ? <Users className="w-5 h-5" /> :
+                   activity.type === 'transaction' ? <DollarSign className="w-5 h-5" /> :
+                   <TrendingUp className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="font-medium">{activity.text}</p>
+                  <p className="text-sm text-gray-500">
+                    {activity.date.toLocaleDateString()} {activity.date.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       <AddMemberModal
         isOpen={isAddMemberModalOpen}
         onClose={() => setIsAddMemberModalOpen(false)}
-        onSubmit={handleAddMember}
+        onSubmit={async (data) => {
+          try {
+            await fetch(`${API_BASE_URL}/member/register`, {
+              method: 'POST',
+              body: data
+            });
+            setIsAddMemberModalOpen(false);
+            fetchDashboardData();
+          } catch (error) {
+            console.error('Error adding member:', error);
+          }
+        }}
       />
     </div>
   );
 };
 
-const StatCard = ({ icon: Icon, title, value, change }: { icon: any, title: string, value: string, change: string }) => (
+const StatCard = ({ icon: Icon, title, value }: { icon: any, title: string, value: string }) => (
   <div className="bg-white p-6 rounded-lg shadow-sm">
     <div className="flex items-center justify-between">
       <div>
@@ -335,7 +295,6 @@ const StatCard = ({ icon: Icon, title, value, change }: { icon: any, title: stri
         <Icon className="w-6 h-6 text-blue-500" />
       </div>
     </div>
-    <p className={`mt-2 text-sm ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>{change}</p>
   </div>
 );
 

@@ -42,3 +42,8 @@ const upload = multer({
 
 // Middleware to handle a single file upload under the field name 'photo'
 export const uploadPhoto = upload.single('photo');
+
+// Function to construct a valid photo URL or relative path
+export const getPhotoPath = (filename) => {
+    return `images/photos/${filename}`; // Adjust to your desired path handling logic
+};

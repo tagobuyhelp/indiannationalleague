@@ -61,44 +61,12 @@ const createFees = asyncHandler(async (req, res) => {
         redirectUrl
     );
 
-    // Send payment initiation email
-    const emailContent = `
-    <p>Dear Member,</p>
-    <p>Your payment process for the membership fee has been initiated successfully.</p>
-    <p>Amount: ₹${amount}</p>
-    <p>Transaction ID: ${transactionId}</p>
-    <p>Please complete the payment using the link below:</p>
-    <a href="${paymentUrl}" style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #006600; color: white; text-align: center; text-decoration: none; border-radius: 5px;">Complete Payment</a>
-    <p>Thank you!</p>
-    
-    <hr style="margin: 20px 0; border: 1px solid #ccc;">
-    
-    <p><strong>Address</strong></p>
-    <p>
-        INDIAN NATIONAL LEAGUE<br>
-        Registered Address: 7 B. R. Mehta Lane, Kasturba Gandhi Marg Cross,<br>
-        New Delhi Central Delhi DELHI 110001<br>
-        Operational Address: 7 B. R. Mehta Lane, Kasturba Gandhi Marg Cross,<br>
-        New Delhi Central Delhi DELHI 110001
-    </p>
 
-    <p><strong>Contact Information</strong><br>
-        Telephone No: 9532835303<br>
-        E-Mail ID: info@indiannationalleague.party
-    </p>
-`;
-
-    await sendMail({
-        to: email,
-        subject: "Membership Fees Payment Initiated",
-        html: emailContent
-    });
-    
 
     // Respond with created transaction and membership
     if (paymentUrl) {
         res.status(200).json(
-            new ApiResponse(200, paymentUrl, 'Payment for your Membership Fees initiated...')
+            {paymentLink: paymentUrl}
         );
     } else {
         throw new ApiError(500, "Payment initiation failed. Please try again.");
@@ -163,7 +131,6 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
                     <p>Your membership fee payment was successful.</p>
                     <p>Amount: ₹${transaction.amount}</p>
                     <p>Transaction ID: ${merchantTransactionId}</p>
-                    <p>Your membership is now active.</p>
                     <p>Thank you for your payment!</p>
                 `;
             await sendMail({

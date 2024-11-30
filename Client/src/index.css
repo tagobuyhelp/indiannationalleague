@@ -19,23 +19,10 @@
     width: 100%;
   }
 
-  .print-section table {
-    width: 100%;
-    border-collapse: collapse;
+  .break-before-page {
+    break-before: page;
   }
 
-  .print-section th {
-    font-weight: 600;
-    text-align: left;
-    padding: 8px;
-    background-color: #f9fafb;
-  }
-
-  .print-section td {
-    padding: 8px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  
   @page {
     margin: 2cm;
     size: portrait;

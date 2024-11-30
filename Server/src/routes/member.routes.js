@@ -11,10 +11,14 @@ import {
     verifyOtp,
     checkMembership,
     memberIdCardGenerator,
+    checkMembership2,
+    getMemberByPhoneEmail
 } from '../controllers/member.controller.js';
 
 
 const router = express.Router();
+
+
 
 // Route for verifying if a member exists and sending OTP for verification
 router.post('/verify', verifyMember); // Verifies member and sends OTP
@@ -35,12 +39,23 @@ router.get('/', getAllMembers); // Retrieves all members with pagination
 router.get('/:id', getMemberById); // Retrieves a member's data by ID
 
 // Route for updating member information (requires OTP verification)
-router.put('/:id', updateMember); // Updates member info after OTP verification
+router.put('/:id', uploadPhoto, updateMember); // Updates member info after OTP verification
 
 // Route for deleting a member (requires OTP verification)
 router.delete('/:id', deleteMember); // Deletes a member after OTP verification
 
 // Member id card generator by member id 
 router.post('/generate-id-card/:id', memberIdCardGenerator)
+
+//Check membership 2
+router.post('/check-membership', checkMembership2);
+
+
+//Get member by email phone number
+
+router.post('/member-by-email-phone', getMemberByPhoneEmail);
+
+
+
 
 export default router;

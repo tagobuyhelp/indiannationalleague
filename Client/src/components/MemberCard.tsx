@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MoreVertical, Printer, Eye, Trash2, CreditCard, CheckCircle } from 'lucide-react';
-import { Member } from '../services/api';
+import { Member, memberService } from '../services/api';
+import { API_BASE_URL } from '../config/api';
 
 interface MemberCardProps {
   member: Member;
@@ -14,7 +15,7 @@ interface MemberCardProps {
 const MemberCard: React.FC<MemberCardProps> = ({ 
   member, 
   onPrint, 
-  onGenerateId, 
+  onGenerateId,
   onEdit,
   onDelete,
   onCheckMembership 
@@ -27,40 +28,80 @@ const MemberCard: React.FC<MemberCardProps> = ({
   const dob = new Date(member.dob).toLocaleDateString();
 
   const handlePrintMember = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onPrint(member);
+    setShowActions(false);
   };
 
   const handleViewMember = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onEdit(member);
+    setShowActions(false);
   };
 
   const handleRemoveMember = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onDelete(member);
+    setShowActions(false);
   };
 
   const handleGenerateId = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     setIsGenerating(true);
     try {
-      await onGenerateId(member);
+      const result = await memberService.generateIdCard(member._id);
+      alert(result.message || 'ID card generated successfully');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error generating ID card:', error);
+      alert(error instanceof Error ? error.message : 'Failed to generate ID card');
     } finally {
       setIsGenerating(false);
+      setShowActions(false);
     }
   };
 
-  const handleCheckMembership = async (e: React.MouseEvent) => {
+  const handleDownloadId = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
-    if (!onCheckMembership) return;
-    
+    if (member.idCard) {
+      try {
+        await memberService.downloadIdCard(member.idCard);
+      } catch (error) {
+        console.error('Error downloading ID card:', error);
+        alert('Failed to download ID card. Please try again.');
+      }
+    } else {
+      alert('ID card not available. Please generate one first.');
+    }
+    setShowActions(false);
+  };
+
+  const handleCheckMembership = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsChecking(true);
     try {
-      await onCheckMembership(member.email, member.phone);
+      if (onCheckMembership) {
+        await onCheckMembership(member.email, member.phone);
+      }
+    } catch (error) {
+      console.error('Error checking membership:', error);
+      alert(error instanceof Error ? error.message : 'Failed to check membership status');
     } finally {
       setIsChecking(false);
+      setShowActions(false);
     }
+  };
+
+  const toggleActions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowActions(!showActions);
   };
 
   return (
@@ -70,7 +111,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
           <div className="w-8 h-8 bg-gray-200 rounded-full overflow-hidden">
             {member.photo && (
               <img 
-                src={member.photo} 
+                src={member.photo.startsWith('http') ? member.photo : `${API_BASE_URL}/${member.photo}`}
                 alt={member.fullname}
                 className="w-full h-full object-cover"
               />
@@ -92,7 +133,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
           <button
             onClick={handleCheckMembership}
             disabled={isChecking}
-            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 disabled:opacity-50"
           >
             <CheckCircle className="w-4 h-4 mr-1" />
             {isChecking ? 'Checking...' : 'Check Membership'}
@@ -130,7 +171,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium print:hidden">
         <div className="relative">
           <button 
-            onClick={() => setShowActions(!showActions)}
+            onClick={toggleActions}
             className="text-gray-400 hover:text-gray-500"
           >
             <MoreVertical className="w-5 h-5" />
@@ -139,7 +180,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
           {showActions && (
             <div 
               className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10"
-              onClick={() => setShowActions(false)}
             >
               <div className="py-1" role="menu">
                 <button
@@ -150,6 +190,15 @@ const MemberCard: React.FC<MemberCardProps> = ({
                   <CreditCard className="w-4 h-4 mr-3" />
                   {isGenerating ? 'Generating...' : 'Generate ID Card'}
                 </button>
+                {member.idCard && (
+                  <button
+                    onClick={handleDownloadId}
+                    className="flex items-center px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 w-full text-left"
+                  >
+                    <CreditCard className="w-4 h-4 mr-3" />
+                    Download ID Card
+                  </button>
+                )}
                 <button
                   onClick={handlePrintMember}
                   className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"

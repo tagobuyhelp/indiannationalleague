@@ -10,9 +10,9 @@ export const API_ENDPOINTS = {
   CHANGE_PASSWORD: '/change-password',
 
   // Members
-  MEMBERS: '/member',
-  MEMBER_ID_CARD: '/member/generate-id',
-  MEMBER_BULK_ID_CARDS: '/member/generate-all-ids',
+  MEMBERS: '/members',
+  MEMBER_ID_CARD: '/members/generate-id',
+  MEMBER_BULK_ID_CARDS: '/members/generate-all-ids',
 
   // Notices
   NOTICES: '/notices',

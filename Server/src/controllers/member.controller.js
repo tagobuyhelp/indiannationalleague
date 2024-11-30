@@ -7,6 +7,7 @@ import { generateOTP } from "../utils/otpGenerator.js";
 import { sendMail } from "../utils/sendMail.js";
 import { Membership } from "../models/membership.model.js";
 import { generateIdCard } from "../utils/generateIdCard.js";
+const BASE_URL = process.env.BASE_URL || "http://localhost:4055";
 
 // 1. Generate OTP and Send to Email
 const generateAndSendOtp = asyncHandler(async (email) => {
@@ -23,7 +24,7 @@ const generateAndSendOtp = asyncHandler(async (email) => {
 const verifyOtp = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
     const otpRecord = await OtpCode.findOne({ email, otp });
-    
+
     if (!otpRecord) {
         throw new ApiError(400, "Invalid or expired OTP.");
     }
@@ -40,9 +41,13 @@ const verifyMember = asyncHandler(async (req, res) => {
     await generateAndSendOtp(email); // Generate OTP when verifying a member
 
     const member = await Member.findOne({ aadhaar, phone });
+
+    
+
+    
     if (member) {
         const message = "Member found. OTP has been sent to your email to resume registration.";
-        return res.status(200).json(new ApiResponse(200, message, { member: member }));
+        return res.status(200).json(new ApiResponse(200, message));
     } else {
         const message = "Member not found. Proceed with full registration after OTP verification.";
         return res.status(404).json(new ApiResponse(404, message));
@@ -60,25 +65,57 @@ const registerMember = asyncHandler(async (req, res) => {
     }
 
     // Check if a photo was uploaded and set the photoPath
-    const photoPath = req.file ? `/images/photos/${req.file.filename}` : null;
+    const photoPath = req.file ? `images/photos/${req.file.filename}` : null;
 
     // Create the new member with the photo path if available
     const member = await Member.create({ email, ...memberData, photo: photoPath });
-    
-    return res.status(201).json(new ApiResponse(201, "Member registered successfully.", member));
+
+
+    //Send email to the new member
+    // Send success email
+    const emailContent = `
+    <p>Dear ${member.fullname},</p>
+
+    <p>Thank you for submitting your membership application. We’re excited to welcome you to our community!</p>
+    <p>To proceed, please complete your membership payment at your earliest convenience. Once we receive your payment, we will carefully review your application and update your membership status.</p>
+    <p>If you have any questions or need assistance, feel free to contact our support team. We’re here to help!</p>
+
+    <p>Warm regards,</p>
+    <p><strong>INDIAN NATIONAL LEAGUE</strong></p>
+
+    `;
+    await sendMail({
+        to: member.email,
+        subject: 'We’ve Received Your Application – Complete Your Membership Payment',
+        html: emailContent
+    })
+
+    return res.status(201).json(new ApiResponse(201, "We’ve Received Your Application – Complete Your Membership Payment", member));
 });
 
 
 // 5. Update Member Information
 const updateMember = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const {updates } = req.body;
+    const updates = req.body; // Ensure 'updates' is extracted correctly
+    const photoPath = req.file ? `images/photos/${req.file.filename}` : null;
 
-    const updatedMember = await Member.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+    // If a photoPath is provided, add it to the updates object
+    if (photoPath) {
+        updates.photo = photoPath;
+    }
+
+    const updatedMember = await Member.findByIdAndUpdate(
+        id,
+        updates,
+        { new: true, runValidators: true }
+    );
+
     if (!updatedMember) throw new ApiError(404, "Member not found.");
-    
+
     return res.status(200).json(new ApiResponse(200, "Member updated successfully", updatedMember));
 });
+
 
 // 6. Delete Member
 const deleteMember = asyncHandler(async (req, res) => {
@@ -86,9 +123,27 @@ const deleteMember = asyncHandler(async (req, res) => {
 
     const deletedMember = await Member.findByIdAndDelete(id);
     if (!deletedMember) throw new ApiError(404, "Member not found.");
-    
+
     return res.status(200).json(new ApiResponse(200, "Member deleted successfully"));
 });
+
+const getMemberByPhoneEmail = asyncHandler(async (req, res) => {
+    const { phone, email } = req.body;
+
+    if (!phone || !email) {
+        throw new ApiError(400, "Phone and email are required.");
+    }
+
+    const member = await Member.findOne({ phone, email });
+
+    if (!member) {
+        throw new ApiError(404, "Member not found.");
+    }
+
+    return res.status(200).json(new ApiResponse(200, "Member found", member));
+});
+
+
 
 // 7. Get Member by ID
 const getMemberById = asyncHandler(async (req, res) => {
@@ -98,20 +153,35 @@ const getMemberById = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, "Member found", member));
 });
 
+
+
+
+
 // 8. Get All Members with Pagination
 const getAllMembers = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
+
     const members = await Member.find()
         .skip((page - 1) * limit)
         .limit(parseInt(limit));
+
     const totalMembers = await Member.countDocuments();
-    
-    return res.status(200).json(new ApiResponse(200, "Members retrieved successfully", {
-        total: totalMembers,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        data: members
+
+    // Modify the members array to include the full photo and idCard URLs
+    const modifiedMembers = members.map((member) => ({
+        ...member.toObject(),
+        photo: member.photo ? `${BASE_URL}/${member.photo}` : "", // Append BASE_URL if photo exists
+        idCard: member.idCard ? `${BASE_URL}${member.idCard}` : "", // Append BASE_URL if idCard exists
     }));
+
+    return res.status(200).json(
+        new ApiResponse(200, "Members retrieved successfully", {
+            total: totalMembers,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            data: modifiedMembers,
+        })
+    );
 });
 
 
@@ -121,35 +191,91 @@ const checkMembership = asyncHandler(async (req, res) => {
 
     // Check if a membership record exists for the provided email and phone
     const membership = await Membership.findOne({ email, phone });
-
-    if (!membership) {
+    if (!membership || membership.status === 'inactive') {
         throw new ApiError(404, "Member has not purchased a membership.");
     }
 
-    // Verify if the membership status is active
+    // Check if membership is active
     if (membership.status === "active") {
+        // Fetch the member details
         const member = await Member.findOne({ email, phone });
-
         if (!member) {
             throw new ApiError(404, "Member not found in the database.");
         }
 
-        // Update membershipStatus to active
+        // Update membership status and store member ID
         member.membershipStatus = "active";
-        
-
-        // Store Member ID In member Model
         member.memberId = membership.memberId;
-
         await member.save();
 
+        // Format the response
+        const updatedMember = {
+            ...member.toObject(),
+            photo: member.photo ? `${BASE_URL}/${member.photo}` : "",
+            idCard: member.idCard ? `${BASE_URL}/${member.idCard}` : "",
+        };
+
+
+        // Send success email
+        const emailContent = `
+    <p>Dear ${member.fullname},</p>
+    <p>Congratulations! Your membership application has been reviewed and approved successfully. You are now an official member of the <strong>Indian National League</strong> community.</p>
+    <p>Your membership ID is: <strong>${member.memberId}</strong>. Please keep this ID safe as it will be required for future communications and access to member-exclusive benefits.</p>
+    <p>We are thrilled to have you with us and look forward to your active participation. If you have any questions or require further assistance, don’t hesitate to reach out to our support team.</p>
+
+    <p>Warm regards,</p>
+    <p><strong>Indian National League</strong></p>
+`;
+await sendMail({
+    to: member.email,
+    subject: 'Your Application Has Been Reviewed and Approved!',
+    html: emailContent
+});
+
+
         // Respond with success message
-        return res.status(200).json(new ApiResponse(200, "Membership status updated to active.", member));
+        return res.status(200).json(new ApiResponse(200, "Membership status updated to active.", updatedMember));
     }
 
-    // If membership exists but is not active
+    // Membership exists but is not active
     return res.status(200).json(new ApiResponse(200, "Membership is not active.", membership));
 });
+
+
+const checkMembership2 = asyncHandler(async (req, res) => {
+    const { email, phone } = req.body;
+
+    // Validate input
+    if (!email || !phone) {
+        return res.status(400).json({ success: false, message: "Please enter email or phone number" });
+    }
+
+    // Find the membership by email and phone
+    const membership = await Membership.findOne({ email, phone });
+
+    if (!membership || membership.status === 'inactive') {
+        return res.status(404).json({ success: false, message: "Membership not found - Pay your membership fee",  });
+    }
+
+    const member = await Member.findOne({ email : membership.email, phone : membership.phone });
+
+
+        // Format the response
+    const updatedMember = {
+        ...member.toObject(),
+        photo: member.photo ? `${BASE_URL}/${member.photo}` : "",
+        idCard: member.idCard ? `${BASE_URL}${member.idCard}` : "",
+    };
+
+
+    
+    
+
+    // Membership exists
+    return res.status(200).json({ success: true, message: "Membership already exists", updatedMember });
+});
+
+
 
 
 // 10. Member Id Card Generator
@@ -173,14 +299,14 @@ const memberIdCardGenerator = asyncHandler(async (req, res) => {
             throw new ApiError(404, "Member Photo not found");
         }
 
-        
+
 
         // Extract details
         const memberName = member.fullname;
         const memberId = membership.memberId;
         const memberDob = new Intl.DateTimeFormat('en-GB').format(new Date(member.dob));
         const memberType = membership.type.toUpperCase();
-        
+
         const membershipValidUpto = new Date(membership.createdAt);
         membershipValidUpto.setFullYear(membershipValidUpto.getFullYear() + membership.validity);
         const formattedMembershipValidUpto = new Intl.DateTimeFormat('en-GB').format(membershipValidUpto);
@@ -231,4 +357,6 @@ export {
     verifyOtp,
     checkMembership,
     memberIdCardGenerator,
+    checkMembership2,
+    getMemberByPhoneEmail,
 };

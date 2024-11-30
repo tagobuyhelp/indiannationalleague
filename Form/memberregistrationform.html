@@ -1,0 +1,433 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Registration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-roboto">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Member Registration</h1>
+
+        <!-- Step 1: Check Member Status -->
+        <div id="check-member-status" class="bg-white p-6 rounded shadow-md mb-6">
+            <form id="member-status-form" class="space-y-4">
+                <div>
+                    <label for="aadhaar" class="block text-sm font-medium text-gray-700">Aadhaar</label>
+                    <input type="text" id="aadhaar" name="aadhaar"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required maxlength="12">
+                </div>
+                <div>
+                    <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                    <input type="text" id="phone" name="phone"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required maxlength="10">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" name="email"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <button type="submit" class="w-full bg-red-600 text-white p-2 rounded-md">Next</button>
+            </form>
+        </div>
+
+        <!--Verify OTP-->
+        <div id="verify-otp" class="bg-white p-6 rounded shadow-md mb-6 hidden">
+            <form id="verify-otp-form" class="space-y-4">
+                <label for="otp" class="block text-sm font-medium text-gray-700">Enter OTP</label>
+                <input type="text" id="otp" name="otp" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                    required maxlength="6">
+                <button type="submit" class="w-full bg-red-600 text-white p-2 rounded-md">Verify OTP</button>
+            </form>
+        </div>
+
+        <!-- Step 2: New Member Registration -->
+        <div id="new-member-registration" class="bg-white p-6 rounded shadow-md mb-6 hidden ">
+            <h2 class="text-2xl font-bold mb-4">New Member Registration</h2>
+            <form id="registration-form" class="space-y-4">
+                <div>
+                    <label for="fullname" class="block text-sm font-medium text-gray-700">Full Name</label>
+                    <input type="text" id="fullname" name="fullname"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+
+                </div>
+                <div>
+                    <label for="dob" class="block text-sm font-medium text-gray-700">Date of Birth</label>
+                    <input type="date" id="dob" name="dob"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
+                    <textarea id="address" name="address"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required></textarea>
+                </div>
+                <div>
+                    <label for="state" class="block text-sm font-medium text-gray-700">State</label>
+                    <input type="text" id="state" name="state"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="district" class="block text-sm font-medium text-gray-700">District</label>
+                    <input type="text" id="district" name="district"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="parliament-constituency" class="block text-sm font-medium text-gray-700">Parliament
+                        Constituency</label>
+                    <input type="text" id="parliament-constituency" name="parliamentConstituency"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="assembly-constituency" class="block text-sm font-medium text-gray-700">Assembly
+                        Constituency</label>
+                    <input type="text" id="assembly-constituency" name="assemblyConstituency"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="panchayat" class="block text-sm font-medium text-gray-700">Panchayat</label>
+                    <input type="text" id="panchayat" name="panchayat"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="pincode" class="block text-sm font-medium text-gray-700">Pin Code</label>
+                    <input type="text" id="pincode" name="pinCode"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" maxlength="6" required>
+                </div>
+                <div>
+                    <label for="photo" class="block text-sm font-medium text-gray-700">Upload Photo</label>
+                    <input type="file" id="photo" name="photo"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" accept="image/*" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Membership Type</label>
+                    <div class="mt-1">
+                        <select name="membershipType" id="membershipType">
+                            <option value="general">General Membership (₹20)</option>
+                            <option value="active">Active Membership (₹100)</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="declaration-div" class="hidden">
+                    <input type="checkbox" name="declaration" id="declaration">
+                    <label for="declaration">I am ready to work any time as per the requirement of
+                        the organisation.</label>
+                </div>
+                <button type="submit" class="w-full bg-red-600 text-white p-2 rounded-md">Register</button>
+            </form>
+        </div>
+
+        <!-- Step 3: Membership Validation -->
+        <div id="membership-validation" class="bg-white p-6 rounded shadow-md mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Membership Validation</h2>
+            <p class="mb-4">Your membership has been successfully validated. Please download your ID card below.</p>
+            <a href="#" id="id-card-download-link"
+                class="w-full bg-blue-500 text-white p-2 rounded-md text-center block">Download ID Card</a>
+        </div>
+
+        <div id="membership-fee" class="bg-white p-6 rounded shadow-md mb-6 hidden">
+            <h2 class="text-2xl font-bold mb-4">Pay your Membership Fees</h2>
+            <button type="submit" class="w-full bg-red-600 text-white p-2 rounded-md" id="pay-now">Pay Now</button>
+        </div>
+    </div>
+
+    <script>
+        const API_HOST_URL = 'http://localhost:4055';
+        const VERIFY_MEMBER = '/member/verify';
+        const VERIFY_OTP = '/member/verify-otp';
+        const REGISTER_MEMBER = '/member/register';
+        const CHECK_MEMBERSHIP = '/member/check-membership';
+        const MEMBER = '/member/member-by-email-phone';
+        const CREATE_MEMBERSHIP = '/membership';
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const membershipTypeSelect = document.getElementById("membershipType");
+            const declarationDiv = document.getElementById("declaration-div");
+
+            // Add an event listener for change event on the select element
+            membershipTypeSelect.addEventListener("change", function () {
+                if (this.value === "active") {
+                    declarationDiv.classList.remove("hidden");
+                } else {
+                    declarationDiv.classList.add("hidden");
+                }
+            });
+        });
+
+        // JavaScript to handle form submissions and API interactions
+        document.getElementById('member-status-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const formData = new FormData(event.target);
+            const aadhaar = formData.get('aadhaar');
+            const email = formData.get('email');
+            const phone = formData.get('phone');
+
+            if (aadhaar && email && phone) { // Optional validation
+                localStorage.setItem('aadhaar', aadhaar);
+                localStorage.setItem('email', email);
+                localStorage.setItem('phone', phone);
+                console.log('Data saved to localStorage');
+            } else {
+                console.error('Missing form fields');
+            }
+
+            fetch(`${API_HOST_URL}${VERIFY_MEMBER}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ aadhaar, phone, email })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.statusCode === 200) {
+                        // Alert message from the server
+                        window.alert(data.data.toString());
+
+                        // Show OTP verification form
+                        document.getElementById('verify-otp').classList.remove('hidden');
+                        document.getElementById('verify-otp-form').addEventListener('submit', function (event) {
+                            event.preventDefault();
+                            const otp = document.getElementById('otp').value;
+
+                            fetch(`${API_HOST_URL}${VERIFY_OTP}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ email, otp })
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success === true) {
+                                        window.alert('OTP Verified!');
+                                        if (data.success) {
+                                            //Already Registered User
+                                            //Lest Check Membership Purchase or not
+                                            fetch(`${API_HOST_URL}${CHECK_MEMBERSHIP}`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json'
+                                                },
+                                                body: JSON.stringify({ email, phone })
+                                            })
+                                                .then(response => response.json())
+                                                .then(data => {
+                                                    console.log(data);
+                                                    if (data) {
+                                                        if (data.success === true) {
+                                                            document.getElementById('verify-otp').classList.add('hidden');
+                                                            document.getElementById('check-member-status').classList.add('hidden');
+                                                            document.getElementById('membership-validation').classList.remove('hidden');
+                                                            console.log(data.updatedMember.idCard);
+                                                            document.getElementById('id-card-download-link').href = data.updatedMember.idCard;
+                                                            document.getElementById('id-card-download-link').setAttribute('download', 'ID-Card.pdf');
+
+                                                        } else if (data.success === false) {
+                                                            window.alert('You have not completed the payment - Pay your Membership Fees!');
+                                                            document.getElementById('check-member-status').classList.add('hidden');
+                                                            document.getElementById('verify-otp').classList.add('hidden');
+                                                            document.getElementById('membership-fee').classList.remove('hidden');
+                                                            //Next - Show the Pay Now button - Call the Create Membership Api
+                                                            let fee = 0;
+                                                            let validity = 3;
+                                                            document.getElementById('pay-now').addEventListener('click', function () {
+                                                                //First find the already seleced membership type
+                                                                fetch(`${API_HOST_URL}${MEMBER}`, {
+                                                                    method: 'POST',
+                                                                    headers: {
+                                                                        'Content-Type': 'application/json'
+                                                                    },
+                                                                    body: JSON.stringify({ email, phone })
+                                                                })
+                                                                    .then(response => response.json())
+                                                                    .then(data => {
+                                                                        if (data.statusCode === 200) {
+                                                                            if (data.message.membershipType === 'general') {
+                                                                                fee = 20;
+                                                                            } else if (data.message.membershipType === 'active') {
+                                                                                fee = 100;
+                                                                            }
+
+
+                                                                            //Lest Call Create Membership API - Get Payment URL & Redirect Payment Page
+
+                                                                            fetch(`${API_HOST_URL}${CREATE_MEMBERSHIP}`, {
+                                                                                method: 'POST',
+                                                                                headers: {
+                                                                                    'Content-Type': 'application/json'
+                                                                                },
+                                                                                body: JSON.stringify({
+                                                                                    amount: fee,
+                                                                                    validity,
+                                                                                    email,
+                                                                                    mobileNumber: phone,
+                                                                                    type: data.message.membershipType
+                                                                                })
+                                                                            })
+                                                                                .then(response => response.json())
+                                                                                .then(data => {
+                                                                                    if (data && data.paymentLink) {
+                                                                                        // Redirect to the payment page
+                                                                                        window.location.href = data.paymentLink;
+                                                                                    } else {
+                                                                                        console.error('Payment link not received from the server.');
+                                                                                        alert('Failed to retrieve payment link. Please try again later.');
+                                                                                    }
+                                                                                })
+                                                                                .catch(error => {
+                                                                                    console.error('Error occurred while creating membership:', error);
+                                                                                    alert('An error occurred. Please try again later.');
+                                                                                });
+
+
+                                                                        }
+                                                                    })
+                                                                    .catch(error => console.error(error))
+
+
+                                                            })
+                                                        }
+                                                    }
+                                                })
+                                                .catch(error => console.error('Error:', error), window.alert(error))
+
+                                        } else if (data.success === false) {
+                                            //Lest New Member Registration Process
+                                            document.getElementById('check-member-status').classList.add('hidden');
+                                            document.getElementById('new-member-registration').classList.remove('hidden');
+
+
+                                        }
+                                    } else {
+                                        window.alert('Invalid OTP. Please try again.');
+                                    }
+                                })
+                                .catch(error => console.error('Error:', error));
+                        });
+                    } else {
+                        document.getElementById('check-member-status').classList.add('hidden');
+                        document.getElementById('new-member-registration').classList.remove('hidden');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('registration-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const aadhaar = localStorage.getItem('aadhaar');
+            const email = localStorage.getItem('email');
+            const phone = localStorage.getItem('phone');
+
+            const formData = new FormData(event.target);
+
+
+            // Append additional data
+            if (aadhaar) formData.append('aadhaar', aadhaar);
+            if (email) formData.append('email', email);
+            if (phone) formData.append('phone', phone);
+
+            console.log(formData);
+
+            fetch(`${API_HOST_URL}${REGISTER_MEMBER}`, {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => {
+                    // Check for HTTP errors
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API Response:', data); // Log API response for debugging
+
+                    if (data.statusCode === 201) {
+                        document.getElementById('new-member-registration').classList.add('hidden')
+                        // Success handling
+                        window.alert(data.data || 'We’ve Received Your Application – Complete Your Membership Payment');
+
+                        //Next - Show the Pay Now button - Call the Create Membership Api
+                        document.getElementById('membership-fee').classList.remove('hidden');
+
+                        let fee = 0;
+                        let validity = 3;
+                        document.getElementById('pay-now').addEventListener('click', function () {
+                            //First find the already seleced membership type
+                            fetch(`${API_HOST_URL}${MEMBER}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ email, phone })
+                            })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.statusCode === 200) {
+                                        if (data.message.membershipType === 'general') {
+                                            fee = 20;
+                                        } else if (data.message.membershipType === 'active') {
+                                            fee = 100;
+                                        }
+
+
+                                        //Lest Call Create Membership API - Get Payment URL & Redirect Payment Page
+
+                                        fetch(`${API_HOST_URL}${CREATE_MEMBERSHIP}`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            body: JSON.stringify({
+                                                amount: fee,
+                                                validity,
+                                                email,
+                                                mobileNumber: phone,
+                                                type: data.message.membershipType
+                                            })
+                                        })
+                                            .then(response => response.json())
+                                            .then(data => {
+                                                if (data && data.paymentLink) {
+                                                    // Redirect to the payment page
+                                                    window.location.href = data.paymentLink;
+                                                } else {
+                                                    console.error('Payment link not received from the server.');
+                                                    alert('Failed to retrieve payment link. Please try again later.');
+                                                }
+                                            })
+                                            .catch(error => {
+                                                console.error('Error occurred while creating membership:', error);
+                                                alert('An error occurred. Please try again later.');
+                                            });
+
+
+                                    }
+                                })
+                                .catch(error => console.error(error))
+
+
+                        })
+
+
+                    } else {
+                        // Handle API error response
+                        console.error('API Error:', data);
+                        window.alert(data.message || 'An error occurred. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    window.alert('Something went wrong. Please try again later.');
+                });
+
+        });
+    </script>
+</body>
+
+</html>

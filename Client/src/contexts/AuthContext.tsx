@@ -31,12 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) {
+      const storedUser = localStorage.getItem('user');
+      
+      if (!token || !storedUser) {
         setIsLoading(false);
+        setUser(null);
         return;
       }
 
+      setUser(JSON.parse(storedUser));
+
       const response = await fetch(`${API_BASE_URL}/user/me`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -45,14 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
       } else {
-        // Token is invalid or expired
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('loginTime');
+        setUser(null);
+        navigate('/login');
       }
     } catch (error) {
       console.error('Auth check error:', error);
+      if (!user && localStorage.getItem('user')) {
+        setUser(JSON.parse(localStorage.getItem('user')!));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -78,9 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('loginTime', Date.now().toString());
       
       setUser(data.user);
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -89,15 +102,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/user/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/user/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!response.ok) {
-        console.error('Logout failed');
+        if (!response.ok) {
+          console.error('Logout failed');
+        }
       }
     } catch (error) {
       console.error('Logout error:', error);
@@ -105,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('loginTime');
       setUser(null);
       navigate('/login');
     }

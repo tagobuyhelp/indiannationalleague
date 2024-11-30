@@ -1,40 +1,103 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import LocationSelect from './LocationSelect';
+import PhotoUpload from './PhotoUpload';
+import useLocationData from '../hooks/useLocationData';
 
 interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: FormData) => Promise<void>;
 }
 
 const AddMemberModal: React.FC<AddMemberModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = useState({
     fullname: '',
     phone: '',
     email: '',
     aadhaar: '',
     dob: '',
     address: '',
-    state: '',
-    district: '',
     pinCode: '',
-    parliamentConstituency: '',
     assemblyConstituency: '',
     panchayat: '',
     membershipType: 'general',
     photo: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { 
+    selectedLocations,
+    setSelectedLocations,
+    isLoading,
+    error,
+    countries,
+    states,
+    districts,
+    constituencies,
+    handleCountryChange,
+    handleStateChange,
+    handleDistrictChange,
+    handleConstituencyChange
+  } = useLocationData();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    onClose();
+    setIsSubmitting(true);
+
+    try {
+      const formDataPayload = new FormData();
+      
+      // Add basic form fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'photo') {
+          formDataPayload.append(key, value.toString());
+        }
+      });
+
+      // Add location fields using names instead of IDs
+      if (selectedLocations.country) {
+        formDataPayload.append('country', selectedLocations.country.label);
+      }
+      if (selectedLocations.state) {
+        formDataPayload.append('state', selectedLocations.state.label);
+      }
+      if (selectedLocations.district) {
+        formDataPayload.append('district', selectedLocations.district.label);
+      }
+      if (selectedLocations.constituency) {
+        formDataPayload.append('parliamentConstituency', selectedLocations.constituency.label);
+      }
+
+      // Handle photo upload
+      if (formData.photo) {
+        const base64Response = await fetch(formData.photo);
+        const blob = await base64Response.blob();
+        formDataPayload.append('photo', blob, 'photo.jpg');
+      }
+
+      await onSubmit(formDataPayload);
+      onClose();
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Failed to add member. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
+    }));
+  };
+
+  const handlePhotoChange = (base64: string) => {
+    setFormData(prev => ({
+      ...prev,
+      photo: base64
     }));
   };
 
@@ -55,6 +118,11 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ isOpen, onClose, onSubm
             {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
+
+              <PhotoUpload
+                value={formData.photo}
+                onChange={handlePhotoChange}
+              />
               
               <div>
                 <label className="block text-sm font-medium text-gray-700">Full Name</label>
@@ -119,65 +187,82 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ isOpen, onClose, onSubm
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Membership Type</label>
-                <select
-                  name="membershipType"
-                  value={formData.membershipType}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="general">General</option>
-                  <option value="active">Active</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Address Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Address Information</h3>
-              
-              <div>
                 <label className="block text-sm font-medium text-gray-700">Address</label>
                 <textarea
                   name="address"
-                  required
                   value={formData.address}
                   onChange={handleChange}
                   rows={3}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Location Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">Location Information</h3>
+
+              <LocationSelect
+                label="Country"
+                options={countries.map(c => ({ value: c._id, label: c.name }))}
+                value={selectedLocations.country}
+                onChange={handleCountryChange}
+                isLoading={isLoading.countries}
+                error={error.country}
+              />
+
+              <LocationSelect
+                label="State"
+                options={states.map(s => ({ value: s._id, label: s.name }))}
+                value={selectedLocations.state}
+                onChange={handleStateChange}
+                isLoading={isLoading.states}
+                isDisabled={!selectedLocations.country}
+                error={error.state}
+              />
+
+              <LocationSelect
+                label="District"
+                options={districts.map(d => ({ value: d._id, label: d.name }))}
+                value={selectedLocations.district}
+                onChange={handleDistrictChange}
+                isLoading={isLoading.districts}
+                isDisabled={!selectedLocations.state}
+                error={error.district}
+              />
+
+              <LocationSelect
+                label="Parliament Constituency"
+                options={constituencies.map(c => ({ value: c._id, label: c.name }))}
+                value={selectedLocations.constituency}
+                onChange={handleConstituencyChange}
+                isLoading={isLoading.constituencies}
+                isDisabled={!selectedLocations.district}
+                error={error.constituency}
+              />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">State</label>
-                <select
-                  name="state"
+                <label className="block text-sm font-medium text-gray-700">Assembly Constituency</label>
+                <input
+                  type="text"
+                  name="assemblyConstituency"
                   required
-                  value={formData.state}
+                  value={formData.assemblyConstituency}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="">Select State</option>
-                  <option value="kerala">Kerala</option>
-                  <option value="tamil-nadu">Tamil Nadu</option>
-                  <option value="karnataka">Karnataka</option>
-                </select>
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">District</label>
-                <select
-                  name="district"
+                <label className="block text-sm font-medium text-gray-700">Panchayat</label>
+                <input
+                  type="text"
+                  name="panchayat"
                   required
-                  value={formData.district}
+                  value={formData.panchayat}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="">Select District</option>
-                  <option value="thiruvananthapuram">Thiruvananthapuram</option>
-                  <option value="kollam">Kollam</option>
-                  <option value="kochi">Kochi</option>
-                </select>
+                />
               </div>
 
               <div>
@@ -194,50 +279,15 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ isOpen, onClose, onSubm
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">Parliament Constituency</label>
+                <label className="block text-sm font-medium text-gray-700">Membership Type</label>
                 <select
-                  name="parliamentConstituency"
-                  required
-                  value={formData.parliamentConstituency}
+                  name="membershipType"
+                  value={formData.membershipType}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
                 >
-                  <option value="">Select Parliament Constituency</option>
-                  <option value="thiruvananthapuram">Thiruvananthapuram</option>
-                  <option value="attingal">Attingal</option>
-                  <option value="kollam">Kollam</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Assembly Constituency</label>
-                <select
-                  name="assemblyConstituency"
-                  required
-                  value={formData.assemblyConstituency}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="">Select Assembly Constituency</option>
-                  <option value="vattiyoorkavu">Vattiyoorkavu</option>
-                  <option value="kazhakoottam">Kazhakoottam</option>
-                  <option value="nemom">Nemom</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Panchayat</label>
-                <select
-                  name="panchayat"
-                  required
-                  value={formData.panchayat}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="">Select Panchayat</option>
-                  <option value="venganoor">Venganoor</option>
-                  <option value="kalliyoor">Kalliyoor</option>
-                  <option value="balaramapuram">Balaramapuram</option>
+                  <option value="general">General</option>
+                  <option value="active">Active</option>
                 </select>
               </div>
             </div>
@@ -253,9 +303,10 @@ const AddMemberModal: React.FC<AddMemberModalProps> = ({ isOpen, onClose, onSubm
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              Add Member
+              {isSubmitting ? 'Adding...' : 'Add Member'}
             </button>
           </div>
         </form>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Member } from '../services/api';
+import LocationSelect from './LocationSelect';
+import PhotoUpload from './PhotoUpload';
+import useLocationData from '../hooks/useLocationData';
 
 interface MemberEditModalProps {
   isOpen: boolean;
   member: Member;
   onClose: () => void;
-  onUpdate: (memberId: string, data: Partial<Member>) => Promise<void>;
+  onUpdate: (memberId: string, data: FormData) => Promise<void>;
 }
 
 const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClose, onUpdate }) => {
@@ -17,22 +20,34 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
     aadhaar: '',
     dob: '',
     address: '',
-    state: '',
-    district: '',
     pinCode: '',
-    parliamentConstituency: '',
     assemblyConstituency: '',
     panchayat: '',
     membershipType: '',
     membershipStatus: '',
     photo: ''
   });
+
+  const { 
+    selectedLocations,
+    setSelectedLocations,
+    isLoading,
+    error,
+    countries,
+    states,
+    districts,
+    constituencies,
+    handleCountryChange,
+    handleStateChange,
+    handleDistrictChange,
+    handleConstituencyChange
+  } = useLocationData();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (member) {
-      // Format the date to YYYY-MM-DD for the input
       const formattedDate = new Date(member.dob).toISOString().split('T')[0];
       
       setFormData({
@@ -42,34 +57,91 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
         aadhaar: member.aadhaar,
         dob: formattedDate,
         address: member.address || '',
-        state: member.state,
-        district: member.district,
         pinCode: member.pinCode,
-        parliamentConstituency: member.parliamentConstituency,
-        assemblyConstituency: member.assemblyConstituency,
-        panchayat: member.panchayat,
+        assemblyConstituency: member.assemblyConstituency || '',
+        panchayat: member.panchayat || '',
         membershipType: member.membershipType,
         membershipStatus: member.membershipStatus,
         photo: member.photo || ''
       });
+
+      // Set initial location selections
+      if (member.country) {
+        const countryOption = countries.find(c => c.name === member.country);
+        if (countryOption) {
+          handleCountryChange({ value: countryOption._id, label: countryOption.name });
+        }
+      }
     }
-  }, [member]);
+  }, [member, countries]);
+
+  useEffect(() => {
+    if (member && selectedLocations.country) {
+      const stateOption = states.find(s => s.name === member.state);
+      if (stateOption) {
+        handleStateChange({ value: stateOption._id, label: stateOption.name });
+      }
+    }
+  }, [member, states]);
+
+  useEffect(() => {
+    if (member && selectedLocations.state) {
+      const districtOption = districts.find(d => d.name === member.district);
+      if (districtOption) {
+        handleDistrictChange({ value: districtOption._id, label: districtOption.name });
+      }
+    }
+  }, [member, districts]);
+
+  useEffect(() => {
+    if (member && selectedLocations.district) {
+      const constituencyOption = constituencies.find(c => c.name === member.parliamentConstituency);
+      if (constituencyOption) {
+        handleConstituencyChange({ value: constituencyOption._id, label: constituencyOption.name });
+      }
+    }
+  }, [member, constituencies]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
+    setSubmitError(null);
 
     try {
-      const updateData = {
-        ...formData,
-        dob: new Date(formData.dob).toISOString()
-      };
+      const formDataPayload = new FormData();
+      
+      // Add basic form fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (key !== 'photo') {
+          formDataPayload.append(key, value.toString());
+        }
+      });
 
-      await onUpdate(member._id, updateData); // Use _id instead of memberId
+      // Add location fields using names instead of IDs
+      if (selectedLocations.country) {
+        formDataPayload.append('country', selectedLocations.country.label);
+      }
+      if (selectedLocations.state) {
+        formDataPayload.append('state', selectedLocations.state.label);
+      }
+      if (selectedLocations.district) {
+        formDataPayload.append('district', selectedLocations.district.label);
+      }
+      if (selectedLocations.constituency) {
+        formDataPayload.append('parliamentConstituency', selectedLocations.constituency.label);
+      }
+
+      // Handle photo upload
+      if (formData.photo && formData.photo !== member.photo) {
+        const base64Response = await fetch(formData.photo);
+        const blob = await base64Response.blob();
+        formDataPayload.append('photo', blob, 'photo.jpg');
+      }
+
+      await onUpdate(member._id, formDataPayload);
       onClose();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to update member');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to update member');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,6 +151,13 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
+    }));
+  };
+
+  const handlePhotoChange = (base64: string) => {
+    setFormData(prev => ({
+      ...prev,
+      photo: base64
     }));
   };
 
@@ -94,9 +173,9 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
           </button>
         </div>
 
-        {error && (
+        {submitError && (
           <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
-            {error}
+            {submitError}
           </div>
         )}
 
@@ -105,6 +184,11 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
             {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900">Personal Information</h3>
+
+              <PhotoUpload
+                value={formData.photo}
+                onChange={handlePhotoChange}
+              />
               
               <div>
                 <label className="block text-sm font-medium text-gray-700">Member ID</label>
@@ -190,58 +274,48 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
               </div>
             </div>
 
-            {/* Location and Membership Information */}
+            {/* Location Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Location & Membership</h3>
+              <h3 className="text-lg font-medium text-gray-900">Location Information</h3>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">State</label>
-                <input
-                  type="text"
-                  name="state"
-                  required
-                  value={formData.state}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
+              <LocationSelect
+                label="Country"
+                options={countries.map(c => ({ value: c._id, label: c.name }))}
+                value={selectedLocations.country}
+                onChange={handleCountryChange}
+                isLoading={isLoading.countries}
+                error={error.country}
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">District</label>
-                <input
-                  type="text"
-                  name="district"
-                  required
-                  value={formData.district}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
+              <LocationSelect
+                label="State"
+                options={states.map(s => ({ value: s._id, label: s.name }))}
+                value={selectedLocations.state}
+                onChange={handleStateChange}
+                isLoading={isLoading.states}
+                isDisabled={!selectedLocations.country}
+                error={error.state}
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">PIN Code</label>
-                <input
-                  type="text"
-                  name="pinCode"
-                  required
-                  pattern="[0-9]{6}"
-                  value={formData.pinCode}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
+              <LocationSelect
+                label="District"
+                options={districts.map(d => ({ value: d._id, label: d.name }))}
+                value={selectedLocations.district}
+                onChange={handleDistrictChange}
+                isLoading={isLoading.districts}
+                isDisabled={!selectedLocations.state}
+                error={error.district}
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Parliament Constituency</label>
-                <input
-                  type="text"
-                  name="parliamentConstituency"
-                  required
-                  value={formData.parliamentConstituency}
-                  onChange={handleChange}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
+              <LocationSelect
+                label="Parliament Constituency"
+                options={constituencies.map(c => ({ value: c._id, label: c.name }))}
+                value={selectedLocations.constituency}
+                onChange={handleConstituencyChange}
+                isLoading={isLoading.constituencies}
+                isDisabled={!selectedLocations.district}
+                error={error.constituency}
+              />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700">Assembly Constituency</label>
@@ -262,6 +336,19 @@ const MemberEditModal: React.FC<MemberEditModalProps> = ({ isOpen, member, onClo
                   name="panchayat"
                   required
                   value={formData.panchayat}
+                  onChange={handleChange}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">PIN Code</label>
+                <input
+                  type="text"
+                  name="pinCode"
+                  required
+                  pattern="[0-9]{6}"
+                  value={formData.pinCode}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-blue-500"
                 />
