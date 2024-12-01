@@ -224,7 +224,6 @@
                                                             document.getElementById('membership-validation').classList.remove('hidden');
                                                             console.log(data.updatedMember.idCard);
                                                             document.getElementById('id-card-download-link').href = data.updatedMember.idCard;
-                                                            document.getElementById('id-card-download-link').setAttribute('download', 'ID-Card.pdf');
 
                                                         } else if (data.success === false) {
                                                             window.alert('You have not completed the payment - Pay your Membership Fees!');
