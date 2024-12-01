@@ -1,5 +1,6 @@
 import express from 'express';
 import { uploadPhoto } from '../middleware/photoUpload.middleware.js';
+import { verifyJWT } from '../middleware/auth.middleware.js';
 
 import {
     verifyMember,
@@ -33,16 +34,16 @@ router.get('/check-memberships', checkMembership); // Check membership status
 router.post('/register', uploadPhoto, registerMember); // Registers a new member after OTP verification
 
 // Route for retrieving all members with pagination
-router.get('/', getAllMembers); // Retrieves all members with pagination
+router.get('/',verifyJWT, getAllMembers); // Retrieves all members with pagination
 
 // Route to get a specific member by ID
 router.get('/:id', getMemberById); // Retrieves a member's data by ID
 
 // Route for updating member information (requires OTP verification)
-router.put('/:id', uploadPhoto, updateMember); // Updates member info after OTP verification
+router.put('/:id',verifyJWT, uploadPhoto, updateMember); // Updates member info after OTP verification
 
 // Route for deleting a member (requires OTP verification)
-router.delete('/:id', deleteMember); // Deletes a member after OTP verification
+router.delete('/:id',verifyJWT , deleteMember); // Deletes a member after OTP verification
 
 // Member id card generator by member id 
 router.post('/generate-id-card/:id', memberIdCardGenerator)

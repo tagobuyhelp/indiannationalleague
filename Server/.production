@@ -15,4 +15,5 @@ PHONEPE_HOST_URL=https://api.phonepe.com/apis/hermes/pg/v1/pay
 PHONEPE_STATUS_URL=https://api.phonepe.com/apis/hermes/pg/v1/status
 REDIRECT_URL= https://api.indiannationalleague.party/status
 MEMBERSHIP_PAYMENT_STATUS_URL=https://api.indiannationalleague.party/membership/payment/status
+VPS_IP=62.72.59.121
 EMAIL_USER=info@indiannationalleague.party
