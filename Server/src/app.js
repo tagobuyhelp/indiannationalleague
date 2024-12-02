@@ -25,7 +25,7 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-    origin: ['https://starlit-klepon-33717a.netlify.app', 'https://secure.indiannationalleague.party', 'http://localhost:5173', 'http://127.0.0.1:5500', 'https://indiannationalleague.party'], // Adjust origins as needed
+    origin: ['https://starlit-klepon-33717a.netlify.app', 'https://admin.indiannationalleague.party', 'http://localhost:5173', 'http://127.0.0.1:5500', 'https://indiannationalleague.party'], // Adjust origins as needed
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
 }));
