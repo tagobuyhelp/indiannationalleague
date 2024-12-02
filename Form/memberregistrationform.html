@@ -1,15 +1,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Member Registration</title>
+    <title>INL Member Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body class="bg-gray-100 font-roboto">
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold text-center mb-6">Member Registration</h1>
+    <div class="container mx-auto p-1">
 
         <!-- Step 1: Check Member Status -->
         <div id="check-member-status" class="bg-white p-6 rounded shadow-md mb-6">
@@ -44,7 +43,7 @@
         </div>
 
         <!-- Step 2: New Member Registration -->
-        <div id="new-member-registration" class="bg-white p-6 rounded shadow-md mb-6 hidden ">
+        <div id="new-member-registration" class="bg-white p-6 rounded shadow-md mb-6  hidden">
             <h2 class="text-2xl font-bold mb-4">New Member Registration</h2>
             <form id="registration-form" class="space-y-4">
                 <div>
@@ -64,20 +63,24 @@
                         class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required></textarea>
                 </div>
                 <div>
-                    <label for="state" class="block text-sm font-medium text-gray-700">State</label>
-                    <input type="text" id="state" name="state"
-                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    <label for="state">State</label>
+                    <select name="state" id="state" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <option value="">Select State</option>
+                    </select>
                 </div>
                 <div>
-                    <label for="district" class="block text-sm font-medium text-gray-700">District</label>
-                    <input type="text" id="district" name="district"
-                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    <label for="district">District</label>
+                    <select name="district" id="district"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <option value="">Select District</option>
+                    </select>
                 </div>
                 <div>
-                    <label for="parliament-constituency" class="block text-sm font-medium text-gray-700">Parliament
-                        Constituency</label>
-                    <input type="text" id="parliament-constituency" name="parliamentConstituency"
-                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    <label for="parliamentConstituencies">Parliament Constituency</label>
+                    <select name="parliamentConstituency" id="parliamentConstituency"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        <option value="">Select Parliament Constituency</option>
+                    </select>
                 </div>
                 <div>
                     <label for="assembly-constituency" class="block text-sm font-medium text-gray-700">Assembly
@@ -117,6 +120,7 @@
                 <button type="submit" class="w-full bg-red-600 text-white p-2 rounded-md">Register</button>
             </form>
         </div>
+
 
         <!-- Step 3: Membership Validation -->
         <div id="membership-validation" class="bg-white p-6 rounded shadow-md mb-6 hidden">
@@ -164,6 +168,9 @@
             const aadhaar = formData.get('aadhaar');
             const email = formData.get('email');
             const phone = formData.get('phone');
+
+
+        
 
             if (aadhaar && email && phone) { // Optional validation
                 localStorage.setItem('aadhaar', aadhaar);
@@ -330,7 +337,7 @@
             if (email) formData.append('email', email);
             if (phone) formData.append('phone', phone);
 
-            console.log(formData);
+            console.log(...formData);
 
             fetch(`${API_HOST_URL}${REGISTER_MEMBER}`, {
                 method: 'POST',
@@ -426,6 +433,119 @@
                 });
 
         });
+
+        //Handle Hierarchical Location Selections
+        document.getElementById('state').addEventListener('click', function () {
+            const stateDropdown = document.getElementById('state');
+
+            // Fetch the states data from the API
+            fetch(`${API_HOST_URL}/states/674bf44fa650681615d4701f`, {
+                method: 'GET'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        // Clear existing options
+                        stateDropdown.innerHTML = '';
+
+                        // Populate the dropdown with the states
+                        data.data.forEach(state => {
+                            const option = document.createElement('option');
+                            option.value = state.name; // Use state name as the value
+                            option.id = state._id; // Set the ID attribute as the state ID
+                            option.textContent = state.name; // Display state name
+                            stateDropdown.appendChild(option);
+                        });
+                    } else {
+                        console.error('Failed to retrieve states:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching states:', error);
+                });
+        });
+
+
+        // Handle state selection
+        document.getElementById('state').addEventListener('change', function () {
+            const selectedStateId = this.options[this.selectedIndex].id; // Get the selected state's ID
+            const districtDropdown = document.getElementById('district'); // Target district dropdown
+
+            if (!selectedStateId) {
+                console.error('State ID not found.');
+                return;
+            }
+
+            // Fetch districts for the selected state
+            fetch(`${API_HOST_URL}/districts/${selectedStateId}`, {
+                method: 'GET'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        // Clear existing district options
+                        districtDropdown.innerHTML = '';
+
+                        // Populate the district dropdown
+                        data.data.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district.name; // Use district name as the value
+                            option.id = district._id; // Set the ID attribute as the district ID
+                            option.textContent = district.name; // Display district name
+                            districtDropdown.appendChild(option);
+                        });
+                    } else {
+                        console.error('Failed to retrieve districts:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching districts:', error);
+                });
+        });
+
+
+
+        // Handle district selection
+        document.getElementById('district').addEventListener('change', function () {
+            const selectedDistrictId = this.options[this.selectedIndex].id; // Get the selected district's ID
+            const constituencyDropdown = document.getElementById('parliamentConstituency'); // Target constituency dropdown
+
+            if (!selectedDistrictId) {
+                console.error('District ID not found.');
+                return;
+            }
+
+            // Fetch constituencies for the selected district
+            fetch(`${API_HOST_URL}/parliamentConstituencies/${selectedDistrictId}`, {
+                method: 'GET'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        // Clear existing constituency options
+                        constituencyDropdown.innerHTML = '';
+
+                        // Populate the constituency dropdown
+                        data.data.forEach(constituency => {
+                            const option = document.createElement('option');
+                            option.value = constituency.name; // Use constituency name as the value
+                            option.id = constituency._id; // Set the ID attribute as the constituency ID
+                            option.textContent = constituency.name; // Display constituency name
+                            constituencyDropdown.appendChild(option);
+                        });
+                    } else {
+                        console.error('Failed to retrieve constituencies:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching constituencies:', error);
+                });
+        });
+
+
+
+
+
     </script>
 </body>
 
