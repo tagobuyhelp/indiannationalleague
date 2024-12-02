@@ -9,6 +9,13 @@
 
 <body class="bg-gray-100 font-roboto">
     <div class="container mx-auto p-1">
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="fixed inset-0  items-center justify-center bg-gray-800 bg-opacity-50 hidden">
+            <div class="flex flex-col items-center">
+                <i class="fas fa-spinner fa-spin text-white text-4xl"></i>
+                <p class="text-white mt-2">Please wait, processing your request...</p>
+            </div>
+        </div>
 
         <!-- Step 1: Check Member Status -->
         <div id="check-member-status" class="bg-white p-6 rounded shadow-md mb-6">
@@ -170,7 +177,7 @@
             const phone = formData.get('phone');
 
 
-        
+
 
             if (aadhaar && email && phone) { // Optional validation
                 localStorage.setItem('aadhaar', aadhaar);
@@ -181,6 +188,8 @@
                 console.error('Missing form fields');
             }
 
+            // Show loading spinner
+            document.getElementById('loading-spinner').classList.remove('hidden');
             fetch(`${API_HOST_URL}${VERIFY_MEMBER}`, {
                 method: 'POST',
                 headers: {
@@ -190,6 +199,9 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
+
                     if (data.statusCode === 200) {
                         // Alert message from the server
                         window.alert(data.data.toString());
@@ -200,6 +212,8 @@
                             event.preventDefault();
                             const otp = document.getElementById('otp').value;
 
+                            // Show loading spinner
+                            document.getElementById('loading-spinner').classList.remove('hidden');
                             fetch(`${API_HOST_URL}${VERIFY_OTP}`, {
                                 method: 'POST',
                                 headers: {
@@ -209,6 +223,11 @@
                             })
                                 .then(response => response.json())
                                 .then(data => {
+
+                                    // Hide loading spinner
+                                    document.getElementById('loading-spinner').classList.add('hidden');
+
+
                                     if (data.success === true) {
                                         window.alert('OTP Verified!');
                                         if (data.success) {
@@ -312,14 +331,22 @@
                                         window.alert('Invalid OTP. Please try again.');
                                     }
                                 })
-                                .catch(error => console.error('Error:', error));
+                                .catch(error => {
+                                    // Hide loading spinner
+                                    document.getElementById('loading-spinner').classList.add('hidden');
+                                    console.error('Error:', error)
+                                });
                         });
                     } else {
                         document.getElementById('check-member-status').classList.add('hidden');
                         document.getElementById('new-member-registration').classList.remove('hidden');
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    console.error('Error:', error)
+                });
         });
 
         document.getElementById('registration-form').addEventListener('submit', function (event) {
@@ -339,6 +366,8 @@
 
             console.log(...formData);
 
+            // Show loading spinner
+            document.getElementById('loading-spinner').classList.remove('hidden');
             fetch(`${API_HOST_URL}${REGISTER_MEMBER}`, {
                 method: 'POST',
                 body: formData,
@@ -351,6 +380,8 @@
                     return response.json();
                 })
                 .then(data => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     console.log('API Response:', data); // Log API response for debugging
 
                     if (data.statusCode === 201) {
@@ -365,6 +396,9 @@
                         let validity = 3;
                         document.getElementById('pay-now').addEventListener('click', function () {
                             //First find the already seleced membership type
+
+                            // Show loading spinner
+                            document.getElementById('loading-spinner').classList.remove('hidden');
                             fetch(`${API_HOST_URL}${MEMBER}`, {
                                 method: 'POST',
                                 headers: {
@@ -374,6 +408,8 @@
                             })
                                 .then(response => response.json())
                                 .then(data => {
+                                    // Hide loading spinner
+                                    document.getElementById('loading-spinner').classList.add('hidden');
                                     if (data.statusCode === 200) {
                                         if (data.message.membershipType === 'general') {
                                             fee = 20;
@@ -383,7 +419,8 @@
 
 
                                         //Lest Call Create Membership API - Get Payment URL & Redirect Payment Page
-
+                                        // Show loading spinner
+                                        document.getElementById('loading-spinner').classList.remove('hidden');
                                         fetch(`${API_HOST_URL}${CREATE_MEMBERSHIP}`, {
                                             method: 'POST',
                                             headers: {
@@ -399,6 +436,9 @@
                                         })
                                             .then(response => response.json())
                                             .then(data => {
+                                                // Hide loading spinner
+                                                document.getElementById('loading-spinner').classList.add('hidden');
+
                                                 if (data && data.paymentLink) {
                                                     // Redirect to the payment page
                                                     window.location.href = data.paymentLink;
@@ -408,6 +448,9 @@
                                                 }
                                             })
                                             .catch(error => {
+                                                // Hide loading spinner
+                                                document.getElementById('loading-spinner').classList.add('hidden');
+
                                                 console.error('Error occurred while creating membership:', error);
                                                 alert('An error occurred. Please try again later.');
                                             });
@@ -415,7 +458,11 @@
 
                                     }
                                 })
-                                .catch(error => console.error(error))
+                                .catch(error => {
+                                    // Hide loading spinner
+                                    document.getElementById('loading-spinner').classList.add('hidden');
+                                    console.error(error)
+                                })
 
 
                         })
@@ -428,6 +475,8 @@
                     }
                 })
                 .catch(error => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     console.error('Error:', error);
                     window.alert('Something went wrong. Please try again later.');
                 });
@@ -438,12 +487,16 @@
         document.getElementById('state').addEventListener('click', function () {
             const stateDropdown = document.getElementById('state');
 
+            // Show loading spinner
+            document.getElementById('loading-spinner').classList.remove('hidden');
             // Fetch the states data from the API
             fetch(`${API_HOST_URL}/states/674bf44fa650681615d4701f`, {
                 method: 'GET'
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     if (data.success && data.data) {
                         // Clear existing options
                         stateDropdown.innerHTML = '';
@@ -461,6 +514,8 @@
                     }
                 })
                 .catch(error => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     console.error('Error fetching states:', error);
                 });
         });
@@ -477,11 +532,15 @@
             }
 
             // Fetch districts for the selected state
+            // Show loading spinner
+            document.getElementById('loading-spinner').classList.remove('hidden');
             fetch(`${API_HOST_URL}/districts/${selectedStateId}`, {
                 method: 'GET'
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     if (data.success && data.data) {
                         // Clear existing district options
                         districtDropdown.innerHTML = '';
@@ -499,6 +558,8 @@
                     }
                 })
                 .catch(error => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     console.error('Error fetching districts:', error);
                 });
         });
@@ -516,11 +577,15 @@
             }
 
             // Fetch constituencies for the selected district
+            // Show loading spinner
+            document.getElementById('loading-spinner').classList.remove('hidden');
             fetch(`${API_HOST_URL}/parliamentConstituencies/${selectedDistrictId}`, {
                 method: 'GET'
             })
                 .then(response => response.json())
                 .then(data => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     if (data.success && data.data) {
                         // Clear existing constituency options
                         constituencyDropdown.innerHTML = '';
@@ -538,6 +603,8 @@
                     }
                 })
                 .catch(error => {
+                    // Hide loading spinner
+                    document.getElementById('loading-spinner').classList.add('hidden');
                     console.error('Error fetching constituencies:', error);
                 });
         });
