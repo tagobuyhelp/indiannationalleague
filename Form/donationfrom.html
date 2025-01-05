@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INL Donatation From</title>
+
+    <style>
+        
+
+        #donationForm {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        input,
+        select {
+            padding: 15px !important;
+            border: solid 1px #929292;
+            border-radius: 10px !important;
+            font-size: 16px !important;
+            font-weight: 400
+        }
+
+        select {
+            background-color: #ffff;
+        }
+
+        button {
+            padding: 15px;
+            border: solid 0px #929292;
+            border-radius: 7px;
+            color: white;
+            background-color: rgb(47, 49, 49);
+        }
+    </style>
+
+</head>
+
+<body>
+    <form id="donationForm">
+        <h1 style="font-size: 23px; line-height: 1.6; font-weight:700; text-transform: uppercase">Donate Indian National League</h1>
+        <select id="purpose" name="purpose">
+            <option value="" disabled selected>Select Donation Purpose</option>
+            <option value="campaign-funding">Campaign Funding</option>
+            <option value="social-welfare">Social Welfare Initiatives</option>
+            <option value="minority-rights">Minority Rights Advocacy</option>
+            <option value="community-development">Community Development Projects</option>
+            <option value="educational-scholarships">Educational Scholarships</option>
+            <option value="disaster-relief">Disaster Relief Fund</option>
+            <option value="women-empowerment">Women Empowerment Programs</option>
+            <option value="youth-development">Youth Development Programs</option>
+            <option value="legal-aid">Legal Aid and Human Rights Advocacy</option>
+            <option value="party-infrastructure">Party Infrastructure and Growth</option>
+        </select>
+        <input type="text" id="donorName" name="donorName" placeholder="Enter your name">
+        <input type="text" id="donorEmail" name="donationForm" placeholder="Enter your email id">
+        <input type="text" id="donorPhone" name="donorPhone" placeholder="Enter your phone number">
+        <input type="text" id="amount" name="amount" placeholder="Enter amount">
+        <label for="anonymous">
+            <input type="checkbox" id="anonymous" name="anonymous">
+            Remain Anonymous
+        </label>
+        <button>Made Payment</button>
+    </form>
+
+</body>
+<script>
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const donationForm = document.getElementById("donationForm");
+
+        donationForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            const donorName = document.getElementById('donorName').value;
+            const donorEmail = document.getElementById('donorEmail').value;
+            const donorPhone = document.getElementById('donorPhone').value;
+            const amount = document.getElementById('amount').value;
+            const anonymous = document.getElementById('anonymous').checked;
+            const purpose = document.getElementById('purpose').value;
+
+
+            const userInput = {
+                purpose: purpose,
+                donorName: donorName,
+                donorEmail: donorEmail,
+                donorPhone: donorPhone,
+                amount: parseFloat(amount),
+                anonymous: anonymous,
+            }
+
+            // Validation
+            if (!donorName && !amount) {
+                window.alert("Please enter your name and amount.");
+                return;
+            } else if (!donorName) {
+                window.alert("Please enter your name.");
+                return;
+            } else if (!amount) {
+                window.alert("Please enter an amount.");
+                return;
+            }
+
+
+            console.log(userInput);
+
+
+            //Send(Post) data to the server for initiate payment
+            const apiUrl = "https://server.indiannationalleague.party/pay"
+            fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userInput)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+
+                .then(data => {
+                    console.log('Payment initiation response:', data);
+                    // Handle the response data here (e.g., redirect to the payment URL)
+                    if (data.success === true) {
+                        // Redirect the user or display a success message
+                        window.location.href = data.paymentUrl; // Example of redirection
+                    } else {
+                        // Handle failure case
+                        console.error('Payment initiation failed:', data.message);
+                        alert(`Payment initiation failed: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during payment initiation:', error);
+                    alert('An error occurred while initiating payment. Please try again.');
+                });
+
+
+
+
+
+        })
+    })
+
+    // Add this function to your script
+function safelyAccessChildWindow(callback) {
+  if (window.opener && !window.opener.closed) {
+    callback(window.opener);
+  } else {
+    console.log('Child window is not available');
+  }
+}
+
+// Use it like this
+safelyAccessChildWindow(function(childWindow) {
+  // Your code to interact with the child window
+});
+</script>
+
+
+</html>
