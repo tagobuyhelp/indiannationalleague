@@ -943,8 +943,10 @@ function leagueFormShortCode() {
 
                 <label for="age">Age</label>
                 <input type="number" id="age" name="age" placeholder="Enter your age" required>
+                <label for="aadhaar">Aadhaar</label>
+                <input type="text" id="aadhaar" name="aadhaar" required placeholder="Enter aadhaar number" maxlength="12">
                 <label for="phone-number">Phone Number</label>
-                <input type="text" id="phone-number" name="phone-number" placeholder="Enter your phone number" required>
+                <input type="text" id="phone-number" name="phone-number" placeholder="Enter your phone number" required maxlength="10">
                 <label for="email">Email</label>
                 <input type="text" id="email" name="email" placeholder="Enter your email id" required>
                 <label for="address">Address</label>
@@ -1043,6 +1045,7 @@ function handle_league_form_submission() {
         $league = sanitize_text_field($_POST['league']);
         $full_name = sanitize_text_field($_POST['name']);
         $age = intval($_POST['age']);
+        $aadhaar = sanitize_text_field($_POST['aadhaar']);
         $phone_number = sanitize_text_field($_POST['phone-number']);
         $email_address = sanitize_email($_POST['email']);
         $address = sanitize_text_field($_POST['address']);
@@ -1066,6 +1069,7 @@ function handle_league_form_submission() {
             'post_status' => 'pending', // Change to 'publish' if you want to publish immediately
             'meta_input' => array(
                 'age' => $age,
+                'aadhaar' => $aadhaar,
                 'phone-number' => $phone_number,
                 'email' => $email_address,
                 'address' => $address,
@@ -1092,6 +1096,7 @@ function handle_league_form_submission() {
             'post_status' => 'pending', // Change to 'publish' if you want to publish immediately
             'meta_input' => array(
                 'age' => $age,
+                'aadhaar' => $aadhaar,
                 'phone-number' => $phone_number,
                 'email' => $email_address,
                 'address' => $address,
@@ -1117,6 +1122,7 @@ function handle_league_form_submission() {
             'post_status' => 'pending', // Change to 'publish' if you want to publish immediately
             'meta_input' => array(
                 'age' => $age,
+                'aadhaar' => $aadhaar,
                 'phone-number' => $phone_number,
                 'email' => $email_address,
                 'address' => $address,
@@ -1142,6 +1148,7 @@ function handle_league_form_submission() {
             'post_status' => 'pending', // Change to 'publish' if you want to publish immediately
             'meta_input' => array(
                 'age' => $age,
+                'aadhaar' => $aadhaar,
                 'phone-number' => $phone_number,
                 'email' => $email_address,
                 'address' => $address,
