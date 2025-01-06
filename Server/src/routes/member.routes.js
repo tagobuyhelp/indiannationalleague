@@ -34,7 +34,7 @@ router.get('/check-memberships', checkMembership); // Check membership status
 router.post('/register', uploadPhoto, registerMember); // Registers a new member after OTP verification
 
 // Route for retrieving all members with pagination
-router.get('/',verifyJWT, getAllMembers); // Retrieves all members with pagination
+router.get('/', getAllMembers); // Retrieves all members with pagination
 
 // Route to get a specific member by ID
 router.get('/:id', getMemberById); // Retrieves a member's data by ID
