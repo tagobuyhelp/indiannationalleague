@@ -28,7 +28,7 @@ router.post('/verify', verifyMember); // Verifies member and sends OTP
 router.post('/verify-otp', verifyOtp); // Verifies OTP for registration or updates
 
 // Route for checking if a member's membership is active
-router.get('/check-memberships', checkMembership); // Check membership status
+router.post('/check-memberships', checkMembership); // Check membership status
 
 // Route for registering a new member (requires OTP verification)
 router.post('/register', uploadPhoto, registerMember); // Registers a new member after OTP verification

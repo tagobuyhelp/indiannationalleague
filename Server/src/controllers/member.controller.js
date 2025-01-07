@@ -188,9 +188,11 @@ const getAllMembers = asyncHandler(async (req, res) => {
 // 9. Check Member Membership Buying Status
 const checkMembership = asyncHandler(async (req, res) => {
     const { email, phone } = req.body;
+    console.log(email, phone);
 
     // Check if a membership record exists for the provided email and phone
     const membership = await Membership.findOne({ email, phone });
+    console.log(membership);
     if (!membership || membership.status === 'inactive') {
         throw new ApiError(404, "Member has not purchased a membership.");
     }

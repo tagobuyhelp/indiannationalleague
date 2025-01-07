@@ -137,25 +137,31 @@ export const memberService = {
   },
 
   checkMembership: async (email: string, phone: string): Promise<SingleResponse<Member>> => {
+    const data = {
+      email: email,
+      phone: phone,
+    };
+  
     try {
       const url = new URL(`${API_BASE_URL}/member/check-memberships`);
-      url.searchParams.append('email', email);
-      url.searchParams.append('phone', phone);
-
+  
       const response = await fetch(url.toString(), {
-        method: 'GET',
+        method: 'POST', // Changed to POST
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
           'Accept': 'application/json',
+          'Content-Type': 'application/json', // Ensure Content-Type is set for JSON body
         },
+        body: JSON.stringify(data),
       });
-      
+  
       return handleResponse(response);
     } catch (error) {
       console.error('Error checking membership:', error);
       throw error;
     }
   },
+  
 
   downloadIdCard: async (idCardUrl: string): Promise<void> => {
     try {
