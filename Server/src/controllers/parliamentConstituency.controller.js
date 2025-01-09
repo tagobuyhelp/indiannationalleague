@@ -18,6 +18,60 @@ export const createParliamentConstituency = asyncHandler(async (req, res, next) 
     res.status(201).json(new ApiResponse(201, constituency, 'Parliament Constituency created successfully.'));
 });
 
+// Bulk Create Parliament Constituencies
+export const bulkCreateParliamentConstituencies = asyncHandler(async (req, res, next) => {
+    const { constituencies } = req.body;
+
+    if (!Array.isArray(constituencies) || constituencies.length === 0) {
+        return next(new ApiError(400, 'Invalid input. Expected an array of constituencies.'));
+    }
+
+    const createdConstituencies = [];
+    const errors = [];
+
+    for (const constituency of constituencies) {
+        const { name, districtId } = constituency;
+
+        // Validate input
+        if (!name || !districtId) {
+            errors.push(`Invalid input for constituency: name and districtId are required.`);
+            continue;
+        }
+
+        // Check if the constituency already exists in the district
+        const existingConstituency = await ParliamentConstituency.findOne({ name, district: districtId });
+        if (existingConstituency) {
+            errors.push(`Parliament Constituency '${name}' already exists in this district.`);
+            continue;
+        }
+
+        // Create and save the constituency
+        try {
+            const newConstituency = await ParliamentConstituency.create({ name, district: districtId });
+            createdConstituencies.push(newConstituency);
+        } catch (error) {
+            if (error.name === 'ValidationError') {
+                Object.values(error.errors).forEach((err) => {
+                    errors.push(`Validation error for '${name}': ${err.message}`);
+                });
+            } else {
+                errors.push(`Failed to create Parliament Constituency '${name}': ${error.message}`);
+            }
+        }
+    }
+
+    const responseData = {
+        createdConstituencies,
+        errors,
+    };
+
+    if (createdConstituencies.length > 0) {
+        res.status(201).json(new ApiResponse(201, responseData, 'Bulk Parliament Constituency creation completed.'));
+    } else {
+        res.status(400).json(new ApiResponse(400, responseData, 'No Parliament Constituencies were created.'));
+    }
+});
+
 // Get All Parliament Constituencies for a District
 export const getAllParliamentConstituencies = asyncHandler(async (req, res, next) => {
     const { districtId } = req.params;
