@@ -181,11 +181,15 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
 });
 
 const renewMembership = asyncHandler(async (req, res) => {
-    const { memberId, amount, validity, email, mobileNumber } = req.body;
+    const { memberId, amount, email, mobileNumber, type } = req.body;
 
     const membership = await Membership.findOne({ memberId });
-    if (!membership || membership.status !== 'expired') {
-        throw new ApiError(400, "Membership not active or doesn't exist");
+    if (!membership) {
+        throw new ApiError(400, "Membership doesn't exist");
+    }
+
+    if (membership.status === 'active') {
+        throw new ApiError(400, "Membership is already active");
     }
 
     const transactionId = generateTnxId();
@@ -198,10 +202,16 @@ const renewMembership = asyncHandler(async (req, res) => {
         amount,
     });
 
+    const now = new Date();
+
     membership.transaction = transaction._id;
-    membership.validity = validity;
+    membership.fee = amount;
+    membership.type = type || membership.type;
     membership.status = 'inactive'; // Set inactive until payment is completed
-    await membership.save();
+    membership.startDate = now;
+    membership.lastRenewalDate = now;
+    membership.renewalCount += 1;
+    await membership.save(); // This will trigger the pre-save hook to calculate expiryDate
 
     const paymentUrl = await phonepePayment(transactionId, memberId, amount, mobileNumber, process.env.MEMBERSHIP_PAYMENT_STATUS_URL);
     await sendMail({
@@ -214,7 +224,7 @@ const renewMembership = asyncHandler(async (req, res) => {
 });
 
 const cancelMembership = asyncHandler(async (req, res) => {
-    const { memberId } = req.body;
+    const { memberId, reason } = req.body;
 
     const membership = await Membership.findOne({ memberId });
     if (!membership || membership.status !== 'active') {
@@ -222,6 +232,8 @@ const cancelMembership = asyncHandler(async (req, res) => {
     }
 
     membership.status = 'canceled';
+    membership.cancellationDate = new Date();
+    membership.cancellationReason = reason || 'Not specified';
     await membership.save();
 
     await sendMail({
@@ -286,59 +298,115 @@ const listAllMemberships = asyncHandler(async (req, res) => {
 });
 
 
-
-// Run every day at midnight to expire memberships past their validity
+// Daily cron job for membership management
 cron.schedule('0 0 * * *', async () => {
-    const today = new Date();
-    const expiredMemberships = await Membership.updateMany(
-        { validity: { $lt: today }, status: 'active' },
-        { status: 'expired' }
-    );
-    console.log(`${expiredMemberships.nModified} memberships have expired.`);
+    console.log("Running daily membership management tasks...");
+
+    const now = new Date();
+
+    try {
+        // 1. Expire active memberships
+        const expiredResult = await Membership.updateMany(
+            { 
+                status: 'active', 
+                expiryDate: { $lt: now } 
+            },
+            { 
+                $set: { status: 'expired' }
+            }
+        );
+
+        console.log(`${expiredResult.nModified} memberships have been expired.`);
+
+        // 2. Send expiration emails
+        const recentlyExpiredMemberships = await Membership.find({
+            status: 'expired',
+            expiryDate: { 
+                $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Last 24 hours
+                $lt: now 
+            }
+        });
+
+        for (const membership of recentlyExpiredMemberships) {
+            await sendMail({
+                to: membership.email,
+                subject: "Membership Expired",
+                html: `
+                    <p>Dear Member,</p>
+                    <p>Your membership (ID: ${membership.memberId}) has expired.</p>
+                    <p>Please renew your membership to continue enjoying our services.</p>
+                    <p>Thank you for your continued support!</p>
+                `
+            });
+            console.log(`Expiration email sent for memberId: ${membership.memberId}`);
+        }
+
+        // 3. Send renewal reminders for memberships expiring soon
+        const soonToExpireMemberships = await Membership.find({
+            status: 'active',
+            expiryDate: { 
+                $gte: now,
+                $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // Next 7 days
+            }
+        });
+
+        for (const membership of soonToExpireMemberships) {
+            const daysUntilExpiry = Math.ceil((membership.expiryDate - now) / (1000 * 60 * 60 * 24));
+            await sendMail({
+                to: membership.email,
+                subject: "Membership Expiring Soon",
+                html: `
+                    <p>Dear Member,</p>
+                    <p>Your membership (ID: ${membership.memberId}) will expire in ${daysUntilExpiry} day(s).</p>
+                    <p>Please renew your membership to avoid any interruption in services.</p>
+                    <p>Thank you for your continued support!</p>
+                `
+            });
+            console.log(`Renewal reminder sent for memberId: ${membership.memberId}`);
+        }
+
+        console.log("Daily membership management tasks completed successfully.");
+    } catch (error) {
+        console.error("Error in daily membership management tasks:", error);
+    }
 });
 
+const updateExistingMemberships = asyncHandler(async (req, res) => {
+    const updateResults = await Membership.aggregate([
+        {
+            $addFields: {
+                startDate: { $ifNull: ["$startDate", "$createdAt"] },
+                expiryDate: {
+                    $ifNull: [
+                        "$expiryDate",
+                        {
+                            $add: [
+                                { $ifNull: ["$startDate", "$createdAt"] },
+                                { $multiply: [{ $ifNull: ["$validity", 36] }, 30 * 24 * 60 * 60 * 1000] }
+                            ]
+                        }
+                    ]
+                },
+                renewalCount: { $ifNull: ["$renewalCount", 0] },
+                lastRenewalDate: { $ifNull: ["$lastRenewalDate", null] }
+            }
+        },
+        {
+            $set: {
+                status: {
+                    $cond: {
+                        if: { $lt: ["$expiryDate", new Date()] },
+                        then: "expired",
+                        else: { $ifNull: ["$status", "active"] }
+                    }
+                }
+            }
+        },
+        { $merge: { into: "memberships", whenMatched: "merge" } }
+    ]);
 
-// Schedule a cron job to run at midnight every day
-cron.schedule('0 0 * * *', async () => {
-    console.log("Running daily membership expiration check...");
-
-    // Find all expired memberships
-    const expiredMemberships = await Membership.find({ 
-        status: 'active', 
-        validity: { $lt: new Date() } 
-    });
-
-    for (const membership of expiredMemberships) {
-        const { memberId, fee: amount, validity, email, phone: mobileNumber } = membership;
-        
-        const transactionId = generateTnxId();
-
-        // Create a new transaction for the renewal
-        const transaction = await Transaction.create({
-            memberId,
-            transactionId,
-            transactionType: 'membershipRenewal',
-            paymentStatus: 'pending',
-            amount,
-        });
-
-        // Update membership details
-        membership.transaction = transaction._id;
-        membership.validity = new Date(Date.now() + validity); // Extend validity
-        membership.status = 'inactive';
-        await membership.save();
-
-        // Initiate payment and send renewal email
-        const paymentUrl = await phonepePayment(transactionId, memberId, amount, mobileNumber, process.env.MEMBERSHIP_PAYMENT_STATUS_URL);
-        
-        await sendMail({
-            to: email,
-            subject: "Membership Renewal Initiated",
-            html: `<p>Complete payment here: <a href="${paymentUrl}">Pay Now</a></p>`
-        });
-
-        console.log(`Renewal initiated for memberId: ${memberId}`);
-    }
+    console.log("Membership update completed");
+    res.status(200).json(new ApiResponse(200, updateResults, 'Existing memberships updated successfully.'));
 });
 
 
@@ -348,5 +416,6 @@ export {
     renewMembership,
     cancelMembership,
     getMembershipDetails,
-    listAllMemberships
+    listAllMemberships,
+    updateExistingMemberships
 };

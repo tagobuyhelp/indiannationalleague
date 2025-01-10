@@ -83,11 +83,9 @@
                     </select>
                 </div>
                 <div>
-                    <label for="parliamentConstituencies">Parliament Constituency</label>
-                    <select name="parliamentConstituency" id="parliamentConstituency"
-                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        <option value="">Select Parliament Constituency</option>
-                    </select>
+                    <label for="parliamentConstituency" class="block text-sm font-medium text-gray-700">Parliament Constituency</label>
+                    <input type="text" id="parliamentConstituency" name="parliamentConstituency"
+                        class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
                 <div>
                     <label for="assembly-constituency" class="block text-sm font-medium text-gray-700">Assembly
@@ -144,7 +142,7 @@
     </div>
 
     <script>
-        const API_HOST_URL = 'https://server.indiannationalleague.party';
+        const API_HOST_URL = 'https://api.indiannationalleague.party';
         const VERIFY_MEMBER = '/member/verify';
         const VERIFY_OTP = '/member/verify-otp';
         const REGISTER_MEMBER = '/member/register';
@@ -349,137 +347,132 @@
                 });
         });
 
+// Handle Hierarchical Location Selections
+document.addEventListener('DOMContentLoaded', function () {
+    const stateSelect = document.getElementById('state');
+    const districtSelect = document.getElementById('district');
+    // Remove the constituencySelect variable as it's no longer a dropdown
 
-        // Handle Hierarchical Location Selections
-        document.addEventListener('DOMContentLoaded', function () {
-            const stateSelect = document.getElementById('state');
-            const districtSelect = document.getElementById('district');
-            const constituencySelect = document.getElementById('parliamentConstituency');
+    const COUNTRY_ID = '677a5d381b1d49ca155e6e1d';
 
-            const COUNTRY_ID = '677a5d381b1d49ca155e6e1d';
+    // Fetch and populate states for the pre-selected country
+    fetchLocations('states', stateSelect, COUNTRY_ID);
 
-            // Fetch and populate states for the pre-selected country
-            fetchLocations('states', stateSelect, COUNTRY_ID);
+    // Handle state selection
+    stateSelect.addEventListener('change', function () {
+        const selectedStateId = this.value;
+        const selectedStateName = this.options[this.selectedIndex].textContent;
 
-            // Handle state selection
-            stateSelect.addEventListener('change', function () {
-                const selectedStateId = this.value;
-                const selectedStateName = this.options[this.selectedIndex].textContent;
+        this.setAttribute('data-selected-name', selectedStateName);
 
-                this.setAttribute('data-selected-name', selectedStateName);
+        districtSelect.innerHTML = '<option value="">Select District</option>';
+        // Remove the line that clears the constituency as it's now a text input
 
-                districtSelect.innerHTML = '<option value="">Select District</option>';
-                constituencySelect.innerHTML = '<option value="">Select Constituency</option>';
+        if (selectedStateId) {
+            fetchLocations('districts', districtSelect, selectedStateId);
+        }
+    });
 
-                if (selectedStateId) {
-                    fetchLocations('districts', districtSelect, selectedStateId);
-                }
-            });
+    // Handle district selection
+    districtSelect.addEventListener('change', function () {
+        const selectedDistrictId = this.value;
+        const selectedDistrictName = this.options[this.selectedIndex].textContent;
 
-            // Handle district selection
-            districtSelect.addEventListener('change', function () {
-                const selectedDistrictId = this.value;
-                const selectedDistrictName = this.options[this.selectedIndex].textContent;
+        this.setAttribute('data-selected-name', selectedDistrictName);
 
-                this.setAttribute('data-selected-name', selectedDistrictName);
+        // Remove the lines that fetch and populate constituencies
+    });
 
-                constituencySelect.innerHTML = '<option value="">Select Constituency</option>';
+    // Generic function to fetch and populate location dropdowns
+    function fetchLocations(locationType, selectElement, parentId) {
+        const url = `${API_HOST_URL}/${locationType}/${parentId}`;
 
-                if (selectedDistrictId) {
-                    fetchLocations('parliamentConstituencies', constituencySelect, selectedDistrictId);
-                }
-            });
+        document.getElementById('loading-spinner').classList.remove('hidden');
 
-            // Generic function to fetch and populate location dropdowns
-            function fetchLocations(locationType, selectElement, parentId) {
-                const url = `${API_HOST_URL}/${locationType}/${parentId}`;
+        fetch(url, { method: 'GET' })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading-spinner').classList.add('hidden');
 
-                document.getElementById('loading-spinner').classList.remove('hidden');
-
-                fetch(url, { method: 'GET' })
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('loading-spinner').classList.add('hidden');
-
-                        if (data.success && Array.isArray(data.data)) {
-                            data.data.forEach(location => {
-                                const option = document.createElement('option');
-                                option.value = location._id;
-                                option.textContent = location.name;
-                                selectElement.appendChild(option);
-                            });
-                        } else {
-                            console.error(`Failed to retrieve ${locationType}:`, data.message || 'Unexpected data format');
-                            alert(`Failed to load ${locationType}. Please try again.`);
-                        }
-                    })
-                    .catch(error => {
-                        document.getElementById('loading-spinner').classList.add('hidden');
-                        console.error(`Error fetching ${locationType}:`, error);
-                        alert(`An error occurred while loading ${locationType}. Please try again.`);
+                if (data.success && Array.isArray(data.data)) {
+                    data.data.forEach(location => {
+                        const option = document.createElement('option');
+                        option.value = location._id;
+                        option.textContent = location.name;
+                        selectElement.appendChild(option);
                     });
-            }
-        });
-
-        document.getElementById('registration-form').addEventListener('submit', function (event) {
-            event.preventDefault();
-
-            const formData = new FormData(event.target);
-
-            // Set the country name (since it's fixed)
-            formData.set('country', 'India'); // Assuming the country name is India
-
-            // Replace IDs with names for state, district, and constituency
-            const stateSelect = document.getElementById('state');
-            const districtSelect = document.getElementById('district');
-            const constituencySelect = document.getElementById('parliamentConstituency');
-
-            // Set state name
-            formData.set('state', stateSelect.options[stateSelect.selectedIndex].textContent);
-
-            // Set district name
-            formData.set('district', districtSelect.options[districtSelect.selectedIndex].textContent);
-
-            // Set parliamentConstituency name
-            formData.set('parliamentConstituency', constituencySelect.options[constituencySelect.selectedIndex].textContent);
-
-            // Add aadhaar, email, and phone from localStorage
-            const aadhaar = localStorage.getItem('aadhaar');
-            const email = localStorage.getItem('email');
-            const phone = localStorage.getItem('phone');
-
-            if (aadhaar) formData.append('aadhaar', aadhaar);
-            if (email) formData.append('email', email);
-            if (phone) formData.append('phone', phone);
-
-            console.log(...formData); // For debugging
-
-            // Show loading spinner
-            document.getElementById('loading-spinner').classList.remove('hidden');
-
-            // Submit the form data
-            fetch(`${API_HOST_URL}${REGISTER_MEMBER}`, {
-                method: 'POST',
-                body: formData,
+                } else {
+                    console.error(`Failed to retrieve ${locationType}:`, data.message || 'Unexpected data format');
+                    alert(`Failed to load ${locationType}. Please try again.`);
+                }
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! Status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Hide loading spinner
-                    document.getElementById('loading-spinner').classList.add('hidden');
-                    console.log('API Response:', data); // Log API response for debugging
+            .catch(error => {
+                document.getElementById('loading-spinner').classList.add('hidden');
+                console.error(`Error fetching ${locationType}:`, error);
+                alert(`An error occurred while loading ${locationType}. Please try again.`);
+            });
+    }
+});
+document.getElementById('registration-form').addEventListener('submit', function (event) {
+    event.preventDefault();
 
-                    if (data.statusCode === 201) {
-                        document.getElementById('new-member-registration').classList.add('hidden');
-                        // Success handling
-                        window.alert(data.data || "We've Received Your Application – Complete Your Membership Payment");
+    const formData = new FormData(event.target);
 
-                        //Next - Show the Pay Now button - Call the Create Membership Api
-                        document.getElementById('membership-fee').classList.remove('hidden');
+    // Set the country name (since it's fixed)
+    formData.set('country', 'India'); // Assuming the country name is India
+
+    // Replace IDs with names for state and district
+    const stateSelect = document.getElementById('state');
+    const districtSelect = document.getElementById('district');
+
+    // Set state name
+    formData.set('state', stateSelect.options[stateSelect.selectedIndex].textContent);
+
+    // Set district name
+    formData.set('district', districtSelect.options[districtSelect.selectedIndex].textContent);
+
+    // Get the manually entered Parliament Constituency
+    const parliamentConstituency = document.getElementById('parliamentConstituency').value;
+    formData.set('parliamentConstituency', parliamentConstituency);
+
+    // Add aadhaar, email, and phone from localStorage
+    const aadhaar = localStorage.getItem('aadhaar');
+    const email = localStorage.getItem('email');
+    const phone = localStorage.getItem('phone');
+
+    if (aadhaar) formData.append('aadhaar', aadhaar);
+    if (email) formData.append('email', email);
+    if (phone) formData.append('phone', phone);
+
+    console.log(...formData); // For debugging
+
+    // Show loading spinner
+    document.getElementById('loading-spinner').classList.remove('hidden');
+
+    // Submit the form data
+    fetch(`${API_HOST_URL}${REGISTER_MEMBER}`, {
+        method: 'POST',
+        body: formData,
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Hide loading spinner
+            document.getElementById('loading-spinner').classList.add('hidden');
+            console.log('API Response:', data); // Log API response for debugging
+
+            if (data.statusCode === 201) {
+                document.getElementById('new-member-registration').classList.add('hidden');
+                // Success handling
+                window.alert(data.data || "We've Received Your Application – Complete Your Membership Payment");
+
+                //Next - Show the Pay Now button - Call the Create Membership Api
+                document.getElementById('membership-fee').classList.remove('hidden');
+
 
                         let fee = 0;
                         let validity = 3;

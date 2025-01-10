@@ -37,7 +37,7 @@ const MembershipRow: React.FC<MembershipRowProps> = ({ membership }) => {
     let yearsLeft = Math.floor(daysLeft / 365);
     let monthsLeft = Math.floor((daysLeft % 365) / 30);
 
-    const validityText = `${membership.validity} years`;
+    const validityText = `${membership.validity / 12 } years`;
 
     let timeLeftText = '';
     if (timeLeft > 0) {
@@ -69,7 +69,7 @@ const MembershipRow: React.FC<MembershipRowProps> = ({ membership }) => {
       const payload = {
         memberId: membership.memberId,
         amount: membershipFee,
-        validity: 3,
+        validity: 36,
         email: membership.email,
         mobileNumber: membership.phone
       };
@@ -189,12 +189,9 @@ const MembershipRow: React.FC<MembershipRowProps> = ({ membership }) => {
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-900">{validityInfo.validityText}</div>
-        <div className={`text-sm ${validityInfo.isExpired ? 'text-red-500' : 'text-green-500'}`}>
-          {validityInfo.timeLeftText} left
-        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full uppercase ${
           membership.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {membership.status}
