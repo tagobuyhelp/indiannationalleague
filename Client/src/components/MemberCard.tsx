@@ -158,7 +158,7 @@ const MemberCard: React.FC<MemberCardProps> = ({
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${
           member.membershipStatus === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
         }`}>
           {member.membershipStatus}
