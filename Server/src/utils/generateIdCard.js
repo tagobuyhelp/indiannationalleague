@@ -76,15 +76,60 @@ export const generateIdCard = async (name, id, dob, type, validUpto, memberPhoto
         ctx.font = '800 40px Arial, sans-serif';
         ctx.fillText('ID', 380, 55);
 
+        const wrapText = (context, text, x, y, maxWidth, lineHeight) => {
+            const words = text.split(' ');
+            let line = '';
+            let lines = [];
+
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = context.measureText(testLine);
+                const testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    lines.push(line);
+                    line = words[n] + ' ';
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line);
+            return lines;
+        };
+
         // Member details
         ctx.fillStyle = '#333333';
-        ctx.font = '600 28px Arial, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(`${name}`, 160, 200);
+
+        // Handle name
+        let fontSize = 28;
+        let nameLines = [name];
+        const maxWidth = 220; // Maximum width for the name
+
+        // Reduce font size and wrap text if name is too long
+        while (fontSize > 18) {
+            ctx.font = `600 ${fontSize}px Arial, sans-serif`;
+            nameLines = wrapText(ctx, name, 160, 200, maxWidth, 30);
+            if (nameLines.length <= 2 && ctx.measureText(nameLines[0]).width <= maxWidth) {
+                break;
+            }
+            fontSize -= 2;
+        }
+
+        // Draw name
+        let yPosition = 200;
+        nameLines.forEach((line) => {
+            ctx.fillText(line, 160, yPosition);
+            yPosition += fontSize + 5;
+        });
+
+        // Adjust positions of other details based on name height
+        const nameHeight = nameLines.length * (fontSize + 5);
+        
         ctx.font = '500 26px Arial, sans-serif';
-        ctx.fillText(`ID: ${id}`, 160, 250);
+        ctx.fillText(`ID: ${id}`, 160, 200 + nameHeight + 10);
+        
         ctx.font = '20px Arial, sans-serif';
-        ctx.fillText(`DOB: ${dob}`, 160, 300);
+        ctx.fillText(`DOB: ${dob}`, 160, 200 + nameHeight + 50);
 
         // Load images concurrently
         const [memberImage, barcode] = await Promise.all([

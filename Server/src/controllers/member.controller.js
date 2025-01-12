@@ -315,7 +315,7 @@ const memberIdCardGenerator = asyncHandler(async (req, res) => {
         const memberPhoto = member.photo;
 
         // Generate the ID card if it doesn't exist
-        if (!member.idCard) {
+
             const generated = await generateIdCard(
                 memberName,
                 memberId,
@@ -332,7 +332,7 @@ const memberIdCardGenerator = asyncHandler(async (req, res) => {
             // Update the member record with the new ID card path
             member.idCard = `/images/idcards/inl_member_id_card_${memberId}.png`;
             await member.save();
-        }
+        
 
         // Send response
         res.status(200).json({

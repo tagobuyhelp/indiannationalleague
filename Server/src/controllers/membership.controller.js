@@ -13,6 +13,7 @@ import cron from 'node-cron';
 
 const createFees = asyncHandler(async (req, res) => {
     const { amount, validity, email, mobileNumber , type} = req.body;
+    validity = validity * 12; // Convert months to years
 
     const memberId = generateUserId();
 
