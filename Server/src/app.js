@@ -60,6 +60,7 @@ import countryRoutes from './routes/country.routes.js';
 import stateRoutes from './routes/state.routes.js';
 import districtRoutes from './routes/district.routes.js';
 import parliamentConstituencyRoutes from './routes/parliamentConstituency.routes.js';
+import authRoutes from './routes/auth.routes.js';
 
 
 //route diclaration
@@ -74,6 +75,7 @@ app.use(countryRoutes);
 app.use(stateRoutes);
 app.use(districtRoutes);
 app.use(parliamentConstituencyRoutes);
+app.use(authRoutes)
 
 
 

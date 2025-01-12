@@ -13,7 +13,7 @@ import Users from './pages/Users';
 import LocationManagement from './pages/LocationManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
-function App() {
+const App: React.FC = () => {
   return (
     <AuthProvider>
       <Routes>

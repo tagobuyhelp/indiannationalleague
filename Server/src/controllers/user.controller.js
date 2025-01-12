@@ -72,14 +72,16 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
     const options = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production', // Ensure cookies are secure in production
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     };
 
     return res
         .status(200)
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
-        .json(new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken }, "User logged in successfully"));
+        .json(new ApiResponse(200, { loggedInUser, accessToken, refreshToken }, "User logged in successfully"));
 });
 
 
@@ -152,10 +154,12 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 
+
 // Token validation endpoint
 const validateTokens = asyncHandler(async (req, res) => {
-    const accessToken = req.headers['authorization']?.split(' ')[1];
+    const accessToken = req.headers['authorization']?.split(' ')[1] || req.body.accessToken;
     const refreshToken = req.body.refreshToken;
+    
     if (!accessToken || !refreshToken) {
         throw new ApiError(401, "Missing tokens");
     }
@@ -163,15 +167,43 @@ const validateTokens = asyncHandler(async (req, res) => {
     try {
         // Validate access token
         const decodedAccessToken = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-        const user = await User.findById(decodedAccessToken._id);
-        if (!user || user.refreshToken !== refreshToken) {
-            throw new ApiError(401, "Invalid tokens");
+        const user = await User.findById(decodedAccessToken._id).select("-password -refreshToken");
+        
+        if (!user) {
+            throw new ApiError(401, "User not found");
         }
 
-        res.status(200).json({ success: true });
+        // Validate refresh token
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+        // If both tokens are valid, return user information
+        res.status(200).json(new ApiResponse(200, { user }, "Tokens are valid"));
 
     } catch (error) {
-        res.status(401).json({ success: false, message: error.message });
+        if (error.name === 'TokenExpiredError') {
+            // If access token is expired, try to refresh it
+            try {
+                const decodedRefreshToken = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+                const user = await User.findById(decodedRefreshToken._id);
+                
+                if (!user || user.refreshToken !== refreshToken) {
+                    throw new ApiError(401, "Invalid refresh token");
+                }
+
+                const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await generateAccessTokenAndRefreshToken(user._id);
+                const updatedUser = await User.findById(user._id).select("-password -refreshToken");
+
+                res.status(200).json(new ApiResponse(200, { 
+                    user: updatedUser, 
+                    accessToken: newAccessToken, 
+                    refreshToken: newRefreshToken 
+                }, "Tokens refreshed"));
+            } catch (refreshError) {
+                throw new ApiError(401, "Invalid or expired refresh token");
+            }
+        } else {
+            throw new ApiError(401, "Invalid tokens");
+        }
     }
 });
 
