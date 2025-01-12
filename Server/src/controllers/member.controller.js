@@ -7,6 +7,8 @@ import { generateOTP } from "../utils/otpGenerator.js";
 import { sendMail } from "../utils/sendMail.js";
 import { Membership } from "../models/membership.model.js";
 import { generateIdCard } from "../utils/generateIdCard.js";
+import cloudinary from "../utils/cloudinaryConfig.js";
+
 const BASE_URL = process.env.BASE_URL || "http://localhost:4055";
 
 // 1. Generate OTP and Send to Email
@@ -64,8 +66,16 @@ const registerMember = asyncHandler(async (req, res) => {
         throw new ApiError(409, "Member already exists. Use the update option.");
     }
 
-    // Check if a photo was uploaded and set the photoPath
-    const photoPath = req.file ? `images/photos/${req.file.filename}` : null;
+    let photoUrl = null;
+
+    // Check if a photo was uploaded
+    if (req.file) {
+        // Upload the photo to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "member_photos",
+        });
+        photoUrl = result.secure_url;
+    }
 
     // Create the new member with the photo path if available
     const member = await Member.create({ email, ...memberData, photo: photoPath });
@@ -98,13 +108,17 @@ const registerMember = asyncHandler(async (req, res) => {
 const updateMember = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const updates = req.body; // Ensure 'updates' is extracted correctly
-    const photoPath = req.file ? `images/photos/${req.file.filename}` : null;
+    let photoUrl = null;
 
-    // If a photoPath is provided, add it to the updates object
-    if (photoPath) {
-        updates.photo = photoPath;
+    // Check if a new photo was uploaded
+    if (req.file) {
+        // Upload the new photo to Cloudinary
+        const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "member_photos",
+        });
+        photoUrl = result.secure_url;
+        updates.photo = photoUrl;
     }
-
     const updatedMember = await Member.findByIdAndUpdate(
         id,
         updates,
@@ -167,19 +181,13 @@ const getAllMembers = asyncHandler(async (req, res) => {
 
     const totalMembers = await Member.countDocuments();
 
-    // Modify the members array to include the full photo and idCard URLs
-    const modifiedMembers = members.map((member) => ({
-        ...member.toObject(),
-        photo: member.photo ? `${BASE_URL}/${member.photo}` : "", // Append BASE_URL if photo exists
-        idCard: member.idCard ? `${BASE_URL}${member.idCard}` : "", // Append BASE_URL if idCard exists
-    }));
 
     return res.status(200).json(
         new ApiResponse(200, "Members retrieved successfully", {
             total: totalMembers,
             page: parseInt(page),
             limit: parseInt(limit),
-            data: modifiedMembers,
+            data: members,
         })
     );
 });
@@ -309,9 +317,8 @@ const memberIdCardGenerator = asyncHandler(async (req, res) => {
         const memberDob = new Intl.DateTimeFormat('en-GB').format(new Date(member.dob));
         const memberType = membership.type.toUpperCase();
 
-        const membershipValidUpto = new Date(membership.createdAt);
-        membershipValidUpto.setFullYear(membershipValidUpto.getFullYear() + membership.validity);
-        const formattedMembershipValidUpto = new Intl.DateTimeFormat('en-GB').format(membershipValidUpto);
+        
+        const ValidUpto = new Intl.DateTimeFormat('en-GB').format(new Date(membership.expiryDate));
         const memberPhoto = member.photo;
 
         // Generate the ID card if it doesn't exist
@@ -321,7 +328,7 @@ const memberIdCardGenerator = asyncHandler(async (req, res) => {
                 memberId,
                 memberDob,
                 memberType,
-                formattedMembershipValidUpto,
+                ValidUpto,
                 memberPhoto
             );
 

@@ -18,3 +18,6 @@ REDIRECT_URL= https://api.indiannationalleague.party/status
 MEMBERSHIP_PAYMENT_STATUS_URL=https://api.indiannationalleague.party/membership/payment/status
 VPS_IP=62.72.59.121
 EMAIL_USER=info@indiannationalleague.party
+CLOUDINARY_CLOUD_NAME=dttifrbaa
+CLOUDINARY_API_KEY=197683893811211
+CLOUDINARY_API_SECRET=np5UzUnLTiI9CDtvVUoQwwfD1Tg

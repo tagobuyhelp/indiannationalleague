@@ -1,40 +1,46 @@
 import { createCanvas, loadImage } from 'canvas';
-import { writeFile } from 'fs/promises';
-import { generateAndSaveBarcode, findBarcodeByNumber } from '../utils/barcodeGenerator.js';
-import path from 'path';
-import { existsSync } from 'fs';
-import fs from 'fs';
+import { generateAndSaveBarcode, findBarcodeByNumber, deleteBarcode } from '../utils/barcodeGenerator.js';
 import { Member } from '../models/member.model.js';
 import { Membership } from '../models/membership.model.js';
 import { sendMail } from '../utils/sendMail.js';
+import cloudinary from '../utils/cloudinaryConfig.js';
 
-// Directory where ID cards will be saved
-const idCardDirectory = path.resolve('images/idcards');
-
-// Ensure the directory exists
-if (!fs.existsSync(idCardDirectory)) {
-    fs.mkdirSync(idCardDirectory, { recursive: true });
-}
 
 export const generateIdCard = async (name, id, dob, type, validUpto, memberPhotoPath) => {
+    console.log('generating ID card for', name);
     try {
+        // Find the member and membership records
+        const membership = await Membership.findOne({ memberId: id });
+        if (!membership) {
+            throw new Error('Membership not found');
+        }
+        const member = await Member.findOne({ email: membership.email, phone: membership.phone });
+        if (!member) {
+            throw new Error('Member not found');
+        }
+
+        // Get the member photo URL from the database
+        const memberPhotoUrl = member.photo;
+        if (!memberPhotoUrl) {
+            throw new Error('Member photo not found');
+        }
+
         // Find or generate the barcode for the ID
-        let barcodePath = await findBarcodeByNumber(id);
-        if (!barcodePath || !barcodePath.filePath) {
-            barcodePath = await generateAndSaveBarcode(id);
+        let barcodeUrl;
+        const existingBarcode = await findBarcodeByNumber(id);
+        if (existingBarcode) {
+            barcodeUrl = existingBarcode;
+
+        } else {
+            barcodeUrl = await generateAndSaveBarcode(id);
+        }
+        if (!barcodeUrl) {
+            throw new Error('Barcode not found or could not be generated');
         }
 
-        // Normalize file paths for the member photo and barcode
-        const normalizedMemberPhotoPath = path.resolve(memberPhotoPath);
-        const normalizedBarcodePath = path.resolve(barcodePath.filePath);
 
-        // Ensure both the photo and barcode exist
-        if (!existsSync(normalizedMemberPhotoPath)) {
-            throw new Error(`Member photo does not exist at path: ${normalizedMemberPhotoPath}`);
-        }
-        if (!existsSync(normalizedBarcodePath)) {
-            throw new Error(`Barcode does not exist at path: ${normalizedBarcodePath}`);
-        }
+
+
 
         // Create a canvas for the portrait ID card
         const canvas = createCanvas(400, 600);
@@ -131,12 +137,17 @@ export const generateIdCard = async (name, id, dob, type, validUpto, memberPhoto
         ctx.font = '20px Arial, sans-serif';
         ctx.fillText(`DOB: ${dob}`, 160, 200 + nameHeight + 50);
 
-        // Load images concurrently
+        // Load images from Cloudinary URLs
         const [memberImage, barcode] = await Promise.all([
-            loadImage(normalizedMemberPhotoPath),
-            loadImage(normalizedBarcodePath),
+            loadImage(memberPhotoUrl).catch(error => {
+                console.error('Error loading member photo:', error);
+                throw new Error('Failed to load member photo');
+            }),
+            loadImage(barcodeUrl).catch(error => {
+                console.error('Error loading barcode:', error);
+                throw new Error('Failed to load barcode');
+            })
         ]);
-
         // Draw member photo
         ctx.save();
         drawRoundedRect(ctx, 20, 160, 120, 150, 15);
@@ -163,49 +174,43 @@ export const generateIdCard = async (name, id, dob, type, validUpto, memberPhoto
         ctx.font = '500 20px Arial, sans-serif';
         ctx.fillText('MEMBER', 290, 580);
 
-        // Save ID card
-        const idCardPath = path.join(idCardDirectory, `inl_member_id_card_${id}.png`);
+        // Convert canvas to buffer
         const buffer = canvas.toBuffer('image/png');
-        await writeFile(idCardPath, buffer);
 
-        // Update the member record with the new ID card path
-        const membership = await Membership.findOne({ memberId: id });
-        if (membership) {
-            const member = await Member.findOne({ email: membership.email, phone: membership.phone });
-            if (member) {
-                member.idCard = `/images/idcards/inl_member_id_card_${id}.png`;
-                await member.save();
-            }
-        }
+        // Upload ID card to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder: 'inl_id_cards' },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            uploadStream.end(buffer);
+        });
 
-        // Email the ID card using sendMail utility
-        const memberEmail = membership.email;
-        const emailSubject = 'Your INL Membership ID Card';
-        const emailBody = `
-            <p>Dear ${name},</p>
-            <p>Please find attached your INL Membership ID card.</p>
-            <p>Best Regards,<br>Indian National League</p>
-        `;
+        const idCardUrl = result.secure_url;
 
+        // Update the member record with the new ID card URL
+        member.idCard = idCardUrl;
+        await member.save();
+
+        // Send email with ID card
         await sendMail({
-            to: memberEmail,
-            subject: emailSubject,
-            html: emailBody,
+            to: member.email,
+            subject: 'Your INL Membership ID Card',
+            text: `Dear ${name},\n\nYour INL Membership ID Card is ready. You can download it from the following link:\n\n${idCardUrl}\n\nBest regards,\nINL Team`,
             attachments: [
                 {
                     filename: `inl_member_id_card_${id}.png`,
-                    path: idCardPath, // Attach the generated ID card
-                },
-            ],
+                    path: idCardUrl
+                }
+            ]
         });
-        
-        
 
-
-        console.log('ID card email sent successfully to:', memberEmail);
         return true;
-    } catch (err) {
-        console.error('Failed to create the ID card:', err.message);
+    } catch (error) {
+        console.error('Error generating ID card:', error);
         return false;
     }
 };
