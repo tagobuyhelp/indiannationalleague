@@ -78,7 +78,7 @@ const registerMember = asyncHandler(async (req, res) => {
     }
 
     // Create the new member with the photo path if available
-    const member = await Member.create({ email, ...memberData, photo: photoPath });
+    const member = await Member.create({ email, ...memberData, photo: photoUrl });
 
 
     //Send email to the new member
@@ -162,6 +162,7 @@ const getMemberByPhoneEmail = asyncHandler(async (req, res) => {
 // 7. Get Member by ID
 const getMemberById = asyncHandler(async (req, res) => {
     const { id } = req.params;
+    console.log('id...',id);
     const member = await Member.findById(id);
     if (!member) throw new ApiError(404, "Member not found.");
     return res.status(200).json(new ApiResponse(200, "Member found", member));
@@ -171,89 +172,156 @@ const getMemberById = asyncHandler(async (req, res) => {
 
 
 
-// 8. Get All Members with Pagination
-const getAllMembers = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10 } = req.query;
 
-    const members = await Member.find()
+// 8. Get All Members with Paginationls
+
+
+const getAllMembers = asyncHandler(async (req, res) => {
+    const { 
+        page = 1, 
+        limit = 10, 
+        search = '', 
+        sort = 'createdAt', 
+        order = 'desc',
+        status,
+        membershipType,
+        state,
+        district,
+        parliamentConstituency
+    } = req.query;
+
+    // Build the query
+    let query = {};
+
+    // Search functionality
+    if (search) {
+        query.$or = [
+            { fullname: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    // Filter by status
+    if (status) {
+        query.membershipStatus = status;
+    }
+
+    // Filter by membershipType
+    if (membershipType) {
+        query.membershipType = membershipType;
+    }
+
+    // Filter by state
+    if (state) {
+        query.state = { $regex: state, $options: 'i' };
+    }
+
+    // Filter by district
+    if (district) {
+        query.district = { $regex: district, $options: 'i' };
+    }
+
+    // Filter by parliamentConstituency
+    if (parliamentConstituency) {
+        query.parliamentConstituency = { $regex: parliamentConstituency, $options: 'i' };
+    }
+
+    // Execute the query
+    const totalMembers = await Member.countDocuments(query);
+    const members = await Member.find(query)
+        .sort({ [sort]: order === 'asc' ? 1 : -1 })
         .skip((page - 1) * limit)
         .limit(parseInt(limit));
 
-    const totalMembers = await Member.countDocuments();
+    // Fetch location options
+    const states = await Member.distinct('state');
+    const districts = await Member.distinct('district');
+    const parliamentConstituencies = await Member.distinct('parliamentConstituency');
 
+    // Prepare the response
+    const totalPages = Math.ceil(totalMembers / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     return res.status(200).json(
-        new ApiResponse(200, "Members retrieved successfully", {
-            total: totalMembers,
-            page: parseInt(page),
-            limit: parseInt(limit),
-            data: members,
+        new ApiResponse(200, "Members fetched successfully", {
+            members,
+            currentPage: parseInt(page),
+            totalPages,
+            totalMembers,
+            hasNextPage,
+            hasPrevPage,
+            locationOptions: {
+                states: states.filter(Boolean).sort(),
+                districts: districts.filter(Boolean).sort(),
+                parliamentConstituencies: parliamentConstituencies.filter(Boolean).sort()
+            }
         })
     );
 });
 
 
+
 // 9. Check Member Membership Buying Status
 const checkMembership = asyncHandler(async (req, res) => {
     const { email, phone } = req.body;
-    console.log(email, phone);
 
-    // Check if a membership record exists for the provided email and phone
+    if (!email || !phone) {
+        throw new ApiError(400, "Email and phone are required.");
+    }
+
+    // Check if a membership record exists
     const membership = await Membership.findOne({ email, phone });
-    console.log(membership);
-    if (!membership || membership.status === 'inactive') {
-        throw new ApiError(404, "Member has not purchased a membership.");
+
+    if (!membership) {
+        return res.status(404).json(new ApiResponse(404, "No membership found. Please purchase a membership.", null));
     }
 
-    // Check if membership is active
-    if (membership.status === "active") {
-        // Fetch the member details
-        const member = await Member.findOne({ email, phone });
-        if (!member) {
-            throw new ApiError(404, "Member not found in the database.");
-        }
+    // Check membership status
+    switch (membership.status) {
+        case 'inactive':
+            return res.status(200).json(new ApiResponse(200, "Membership is inactive. Please complete the payment.", { status: 'inactive' }));
+        
+        case 'expired':
+            return res.status(200).json(new ApiResponse(200, "Membership has expired. Please renew your membership.", { status: 'expired', expiryDate: membership.expiryDate }));
+        
+        case 'canceled':
+            return res.status(200).json(new ApiResponse(200, "Membership was canceled. Please contact support for reactivation.", { status: 'canceled', cancellationDate: membership.cancellationDate }));
+        
+        case 'active':
+            // Fetch the member details
+            const member = await Member.findOne({ email, phone });
+            
+            if (!member) {
+                throw new ApiError(404, "Member details not found in the database.");
+            }
 
-        // Update membership status and store member ID
-        member.membershipStatus = "active";
-        member.memberId = membership.memberId;
-        await member.save();
+            // Update membership status and store member ID if not already done
+            if (member.membershipStatus !== 'active' || !member.memberId) {
+                member.membershipStatus = 'active';
+                member.memberId = membership.memberId;
+                await member.save();
+            }
 
-        // Format the response
-        const updatedMember = {
-            ...member.toObject(),
-            photo: member.photo ? `${BASE_URL}/${member.photo}` : "",
-            idCard: member.idCard ? `${BASE_URL}/${member.idCard}` : "",
-        };
+            // Format the response
+            const updatedMember = {
+                ...member.toObject(),
+                photo: member.photo ? `${BASE_URL}/${member.photo}` : "",
+                idCard: member.idCard ? `${BASE_URL}/${member.idCard}` : "",
+            };
 
-
-        // Send success email
-        const emailContent = `
-    <p>Dear ${member.fullname},</p>
-    <p>Congratulations! Your membership application has been reviewed and approved successfully. You are now an official member of the <strong>Indian National League</strong> community.</p>
-    <p>Your membership ID is: <strong>${member.memberId}</strong>. Please keep this ID safe as it will be required for future communications and access to member-exclusive benefits.</p>
-    <p>We are thrilled to have you with us and look forward to your active participation. If you have any questions or require further assistance, don’t hesitate to reach out to our support team.</p>
-
-    <p>Warm regards,</p>
-    <p><strong>Indian National League</strong></p>
-`;
-await sendMail({
-    to: member.email,
-    subject: 'Your Application Has Been Reviewed and Approved!',
-    html: emailContent
-});
-
-
-        // Respond with success message
-        return res.status(200).json(new ApiResponse(200, "Membership status updated to active.", updatedMember));
+            return res.status(200).json(new ApiResponse(200, "Membership is active.", { status: 'active', member: updatedMember }));
+        
+        default:
+            throw new ApiError(500, "Unknown membership status.");
     }
-
-    // Membership exists but is not active
-    return res.status(200).json(new ApiResponse(200, "Membership is not active.", membership));
 });
 
 
 const checkMembership2 = asyncHandler(async (req, res) => {
     const { email, phone } = req.body;
+    console.log('checkMembership2 function called');
 
     // Validate input
     if (!email || !phone) {

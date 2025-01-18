@@ -25,7 +25,7 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-    origin: ['https://delightful-kulfi-d6734f.netlify.app', 'https://admin.indiannationalleague.party', 'http://localhost:5173', 'http://127.0.0.1:5500', 'https://indiannationalleague.party'], // Adjust origins as needed
+    origin: ['https://delightful-kulfi-d6734f.netlify.app', 'https://admin.indiannationalleague.party', 'http://localhost:5173', 'http://127.0.0.1:5500', 'https://indiannationalleague.party', 'https://delightful-kulfi-d6734f.netlify.app'], // Adjust origins as needed
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
 }));
@@ -61,6 +61,7 @@ import stateRoutes from './routes/state.routes.js';
 import districtRoutes from './routes/district.routes.js';
 import parliamentConstituencyRoutes from './routes/parliamentConstituency.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import statisticsRoutes from './routes/statistics.routes.js';
 
 
 //route diclaration
@@ -76,6 +77,7 @@ app.use(stateRoutes);
 app.use(districtRoutes);
 app.use(parliamentConstituencyRoutes);
 app.use(authRoutes)
+app.use('/statistics', statisticsRoutes);
 
 
 
