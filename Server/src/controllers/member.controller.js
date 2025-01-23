@@ -227,7 +227,7 @@ const getAllMembers = asyncHandler(async (req, res) => {
         query.parliamentConstituency = { $regex: parliamentConstituency, $options: 'i' };
     }
 
-    // Execute the query
+    // Execute the query with pagination
     const totalMembers = await Member.countDocuments(query);
     const members = await Member.find(query)
         .sort({ [sort]: order === 'asc' ? 1 : -1 })
@@ -239,7 +239,7 @@ const getAllMembers = asyncHandler(async (req, res) => {
     const districts = await Member.distinct('district');
     const parliamentConstituencies = await Member.distinct('parliamentConstituency');
 
-    // Prepare the response
+    // Prepare the pagination info
     const totalPages = Math.ceil(totalMembers / limit);
     const hasNextPage = page < totalPages;
     const hasPrevPage = page > 1;
@@ -247,11 +247,13 @@ const getAllMembers = asyncHandler(async (req, res) => {
     return res.status(200).json(
         new ApiResponse(200, "Members fetched successfully", {
             members,
-            currentPage: parseInt(page),
-            totalPages,
-            totalMembers,
-            hasNextPage,
-            hasPrevPage,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalMembers,
+                hasNextPage,
+                hasPrevPage
+            },
             locationOptions: {
                 states: states.filter(Boolean).sort(),
                 districts: districts.filter(Boolean).sort(),
